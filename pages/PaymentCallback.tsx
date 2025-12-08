@@ -1,6 +1,7 @@
+
 import React, { useEffect, useState } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { CheckCircle, XCircle, Loader, Search } from 'lucide-react';
+import { CheckCircle, XCircle, Loader } from 'lucide-react';
 import { db } from '../services/db';
 
 const PaymentCallback = () => {
@@ -9,27 +10,36 @@ const PaymentCallback = () => {
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
 
   useEffect(() => {
-    const ref = searchParams.get('ref') || searchParams.get('reference');
+    // iPayMoney typically returns the transaction_id or we use the one we generated
+    // The SDK documentation says it redirects to data-redirect-url
+    // We expect params like ?transaction_id=XYZ or ?status=successful
+    
+    // We check for 'transaction_id' (standard) or 'ref' (our previous logic)
+    const ref = searchParams.get('transaction_id') || searchParams.get('ref') || searchParams.get('reference');
     
     if (!ref) {
-        setStatus('failed');
-        return;
+        // Fallback: If no ref but status is 'success', we might accept it in this mock env
+        // but strictly we need a reference.
+        console.warn("No reference found in callback");
     }
 
     const verify = async () => {
-        // Strict Validation: Call DB/API to check if this Ref is actually Paid
-        const success = await db.finalizeTransaction(ref);
-        
-        if (success) {
-            setStatus('success');
-            // Auto redirect after 3s
-            setTimeout(() => navigate('/search', { replace: true }), 3000);
-        } else {
-            setStatus('failed');
+        // If we have a ref, try to verify it
+        if (ref) {
+             const success = await db.finalizeTransaction(ref);
+             if (success) {
+                setStatus('success');
+                setTimeout(() => navigate('/search', { replace: true }), 3000);
+                return;
+             }
         }
+        
+        // If finalize failed or no ref, mark as failed
+        setStatus('failed');
     };
 
-    verify();
+    // Add small delay to ensure DB/API consistency
+    setTimeout(verify, 1000);
   }, [searchParams, navigate]);
 
   return (
@@ -42,7 +52,7 @@ const PaymentCallback = () => {
                     <Loader className="w-12 h-12 text-brand-600 animate-spin" />
                 </div>
                 <h2 className="text-xl font-bold text-gray-900 dark:text-white">Vérification du paiement...</h2>
-                <p className="text-gray-500">Nous interrogeons le serveur pour confirmer votre transaction.</p>
+                <p className="text-gray-500">Nous confirmons la transaction avec i-pay.money.</p>
             </div>
         )}
 
@@ -71,7 +81,7 @@ const PaymentCallback = () => {
                 </div>
                 <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Échec du Paiement</h2>
                 <p className="text-gray-600 dark:text-gray-300">
-                    La transaction n'a pas pu être validée ou a été annulée.
+                    La transaction n'a pas pu être validée.
                 </p>
                 <button 
                     onClick={() => navigate('/payment')}
