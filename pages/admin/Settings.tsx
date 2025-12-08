@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect } from 'react';
-import { Save, Lock, DollarSign, AlertCircle, CheckCircle, MessageCircle, Send } from 'lucide-react';
+import { Save, Lock, DollarSign, AlertCircle, CheckCircle, MessageCircle, Send, Phone } from 'lucide-react';
 import { db } from '../../services/db';
 
 const Settings = () => {
@@ -13,6 +13,10 @@ const Settings = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [passwordStatus, setPasswordStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [passwordMsg, setPasswordMsg] = useState('');
+
+  // Messaging State
+  const [msgPhone, setMsgPhone] = useState('');
+  const [msgContent, setMsgContent] = useState('');
 
   useEffect(() => {
     db.getSettings().then(s => setPrice(s.consultationPrice));
@@ -47,10 +51,14 @@ const Settings = () => {
     setTimeout(() => setPasswordStatus('idle'), 3000);
   };
 
-  const sendTestWhatsApp = () => {
-    const phone = '22797390569';
-    const message = encodeURIComponent("🔔 TEST SYSTEME KAMBEGOYE\nCeci est un message de vérification des notifications.");
-    window.open(`https://wa.me/${phone}?text=${message}`, '_blank');
+  const handleSendMessage = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!msgPhone || !msgContent) return;
+
+    // Remove any non-digit characters for the link
+    const cleanPhone = msgPhone.replace(/\D/g, '');
+    const whatsappUrl = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(msgContent)}`;
+    window.open(whatsappUrl, '_blank');
   };
 
   return (
@@ -96,26 +104,61 @@ const Settings = () => {
         </form>
       </div>
 
-      {/* Notification Tests */}
+      {/* WhatsApp Messaging Form (Replaces Test Button) */}
       <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-md border border-gray-200 dark:border-gray-700">
         <div className="flex items-center mb-4 border-b border-gray-100 dark:border-gray-700 pb-4">
           <div className="p-2 bg-blue-100 text-blue-600 rounded-full mr-3">
             <MessageCircle className="w-5 h-5" />
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Tests de Notification</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Messagerie WhatsApp</h3>
         </div>
         
         <p className="text-sm text-gray-600 dark:text-gray-400 mb-4">
-          Vérifiez que le numéro administrateur (+227 97 39 05 69) est bien configuré pour recevoir les alertes.
+          Envoyez un message direct à un ouvrier ou un client. Cela ouvrira l'application WhatsApp.
         </p>
 
-        <button
-          onClick={sendTestWhatsApp}
-          className="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-md transition-colors"
-        >
-          <Send className="w-4 h-4 mr-2" />
-          Envoyer un message WhatsApp de test
-        </button>
+        <form onSubmit={handleSendMessage} className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Numéro du destinataire
+              </label>
+              <div className="relative rounded-md shadow-sm">
+                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                  <Phone className="h-5 w-5 text-gray-400" />
+                </div>
+                <input
+                  type="tel"
+                  required
+                  placeholder="Ex: 22790000000"
+                  value={msgPhone}
+                  onChange={(e) => setMsgPhone(e.target.value)}
+                  className="block w-full pl-10 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                />
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                Message
+              </label>
+              <textarea
+                required
+                rows={3}
+                placeholder="Votre message ici..."
+                value={msgContent}
+                onChange={(e) => setMsgContent(e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              />
+            </div>
+
+            <button
+              type="submit"
+              className="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white px-4 py-3 rounded-md transition-colors font-medium shadow-sm"
+            >
+              <Send className="w-4 h-4 mr-2" />
+              Envoyer sur WhatsApp
+            </button>
+        </form>
       </div>
 
       {/* Security Settings */}
