@@ -76,6 +76,36 @@ const Workers = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingWorker.firstName && editingWorker.lastName) {
+      
+      const baseName = `${editingWorker.firstName}_${editingWorker.lastName}`.toUpperCase().replace(/\s+/g, '_');
+      const timestamp = Date.now();
+
+      // AUTO-SAVE TO MEDIA LIBRARY
+      
+      // 1. Check for new Photo Upload (Base64)
+      if (editingWorker.photoUrl && editingWorker.photoUrl.startsWith('data:')) {
+           console.log("Admin: Saving Photo to Library");
+           await db.saveMedia({
+               id: `PHOTO_${timestamp}`,
+               type: 'image',
+               name: `PHOTO_PROFIL_${baseName}`,
+               data: editingWorker.photoUrl,
+               date: new Date().toISOString()
+           });
+      }
+
+      // 2. Check for new ID Card Upload (Base64)
+      if (editingWorker.idCardUrl && editingWorker.idCardUrl.startsWith('data:')) {
+           console.log("Admin: Saving ID to Library");
+           await db.saveMedia({
+               id: `ID_${timestamp}`,
+               type: 'document',
+               name: `PIECE_IDENTITE_${baseName}`,
+               data: editingWorker.idCardUrl,
+               date: new Date().toISOString()
+           });
+      }
+
       // @ts-ignore
       await db.saveWorker(editingWorker as Worker);
       setIsModalOpen(false);

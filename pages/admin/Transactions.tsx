@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { Download, Filter } from 'lucide-react';
 import { jsPDF } from 'jspdf';
@@ -29,11 +30,11 @@ const Transactions = () => {
     doc.text(`Date d'export: ${new Date().toLocaleDateString()}`, 14, 28);
     doc.text(`Total: ${filteredTransactions.length} transactions`, 14, 34);
 
-    const tableColumn = ["ID", "Date", "Heure", "Montant", "Méthode", "Statut"];
+    const tableColumn = ["ID", "Date", "Tél Client", "Montant", "Méthode", "Statut"];
     const tableRows = filteredTransactions.map(tx => [
       tx.id.substring(0, 8),
       new Date(tx.date).toLocaleDateString(),
-      new Date(tx.date).toLocaleTimeString(),
+      tx.clientPhone || 'N/A',
       `${tx.amount} FCFA`,
       tx.method,
       tx.status
@@ -85,6 +86,7 @@ const Transactions = () => {
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tél. Client</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Montant</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Méthode</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut</th>
@@ -95,6 +97,9 @@ const Transactions = () => {
               <tr key={tx.id}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {new Date(tx.date).toLocaleString()}
+                </td>
+                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                  {tx.clientPhone || '-'}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-green-600">
                   {tx.amount} FCFA
@@ -111,7 +116,7 @@ const Transactions = () => {
             ))}
             {filteredTransactions.length === 0 && (
                 <tr>
-                    <td colSpan={4} className="px-6 py-8 text-center text-gray-500">Aucune transaction trouvée pour ce critère.</td>
+                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Aucune transaction trouvée pour ce critère.</td>
                 </tr>
             )}
           </tbody>

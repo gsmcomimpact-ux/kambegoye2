@@ -1,8 +1,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Smartphone, ChevronRight, AlertCircle } from 'lucide-react';
+import { Lock, Smartphone, ChevronRight, AlertCircle, Copy } from 'lucide-react';
 import { db } from '../services/db';
+import { MERCHANT_NUMBERS } from '../constants';
 
 const Payment = () => {
   const navigate = useNavigate();
@@ -42,6 +43,10 @@ const Payment = () => {
     }
   };
 
+  const getMerchantNumber = () => {
+    return method === 'Mynita' ? MERCHANT_NUMBERS.MYNITA : MERCHANT_NUMBERS.AMANATA;
+  };
+
   return (
     <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gray-50 dark:bg-gray-900 py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full space-y-8 bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg">
@@ -58,27 +63,7 @@ const Payment = () => {
         </div>
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
-          <div className="rounded-md shadow-sm -space-y-px">
-            <div>
-               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                   Numéro Mobile Money
-               </label>
-               <div className="relative rounded-md shadow-sm">
-                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                        <Smartphone className="h-5 w-5 text-gray-400" />
-                    </div>
-                    <input
-                        type="tel"
-                        required
-                        className="focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 sm:text-lg border-gray-300 rounded-md py-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                        placeholder="90 00 00 00"
-                        value={phone}
-                        onChange={(e) => setPhone(e.target.value)}
-                    />
-               </div>
-            </div>
-          </div>
-
+          
           <div>
              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
                  Choisir l'opérateur
@@ -107,6 +92,37 @@ const Payment = () => {
                      <span className="font-semibold text-gray-900 dark:text-white">Amanata</span>
                  </div>
              </div>
+          </div>
+
+          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600">
+             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Numéro Marchand {method}</p>
+             <div className="flex items-center justify-center gap-2">
+                 <span className="text-xl font-mono font-bold text-gray-800 dark:text-white tracking-wider">
+                     {getMerchantNumber()}
+                 </span>
+             </div>
+             <p className="text-xs text-gray-400 mt-2">Le paiement sera initié vers ce numéro.</p>
+          </div>
+
+          <div className="rounded-md shadow-sm -space-y-px">
+            <div>
+               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                   Votre Numéro (Pour valider le paiement)
+               </label>
+               <div className="relative rounded-md shadow-sm">
+                    <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                        <Smartphone className="h-5 w-5 text-gray-400" />
+                    </div>
+                    <input
+                        type="tel"
+                        required
+                        className="focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 sm:text-lg border-gray-300 rounded-md py-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                        placeholder="90 00 00 00"
+                        value={phone}
+                        onChange={(e) => setPhone(e.target.value)}
+                    />
+               </div>
+            </div>
           </div>
 
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md flex items-start">

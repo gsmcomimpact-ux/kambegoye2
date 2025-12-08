@@ -53,6 +53,7 @@ export interface Transaction {
   status: 'success' | 'failed' | 'pending';
   method: 'Mynita' | 'Amanata';
   userId: string; // Simulated IP or Session ID
+  clientPhone?: string; // Le numéro du client qui a payé
 }
 
 export interface ProjectRequest {

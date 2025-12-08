@@ -99,29 +99,51 @@ const Register = () => {
     setStatus('submitting');
     
     try {
-        // Save ID Card to Media
+        const timestamp = Date.now();
+        const baseName = `${formData.firstName}_${formData.lastName}`.toUpperCase().replace(/\s+/g, '_');
+
+        // 1. SAUVEGARDE PIECE IDENTITE (MEDIA LIBRARY)
         if (idFile && formData.idCardUrl) {
+             console.log("Saving ID to Library...");
              await db.saveMedia({
-                 id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+                 id: `ID_${timestamp}`,
                  type: 'document',
-                 name: `ID_${formData.firstName}_${formData.lastName}`,
+                 name: `PIECE_IDENTITE_${baseName}`,
                  data: formData.idCardUrl,
                  date: new Date().toISOString()
              });
         }
 
-        // Save Profile Photo to Media (optional but good for archive)
+        // 2. SAUVEGARDE PHOTO PROFIL (MEDIA LIBRARY)
         if (photoFile && formData.photoUrl) {
+            console.log("Saving Photo to Library...");
             await db.saveMedia({
-                 id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+                 id: `PHOTO_${timestamp}`,
                  type: 'image',
-                 name: `PHOTO_${formData.firstName}_${formData.lastName}`,
+                 name: `PHOTO_PROFIL_${baseName}`,
                  data: formData.photoUrl,
                  date: new Date().toISOString()
              });
         }
 
-        // Simulate API call
+        // 3. SAUVEGARDE PHOTOS CHANTIER (MEDIA LIBRARY)
+        if (formData.workImages.length > 0) {
+            console.log("Saving Work Images...");
+            for (let i = 0; i < formData.workImages.length; i++) {
+                 // Only save if it's a base64 string (new upload)
+                 if (formData.workImages[i].startsWith('data:')) {
+                     await db.saveMedia({
+                         id: `WORK_${timestamp}_${i}`,
+                         type: 'image',
+                         name: `CHANTIER_${baseName}_${i+1}`,
+                         data: formData.workImages[i],
+                         date: new Date().toISOString()
+                     });
+                 }
+            }
+        }
+
+        // Simulate API call to register worker
         const success = await db.registerWorker({
             ...formData
         });
@@ -132,6 +154,7 @@ const Register = () => {
           setStatus('error');
         }
     } catch (e) {
+        console.error(e);
         setStatus('error');
     }
   };
@@ -145,7 +168,7 @@ const Register = () => {
           </div>
           <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Demande envoyée !</h2>
           <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Votre inscription a bien été prise en compte. Un administrateur va vérifier votre dossier (pièce d'identité et profil) avant d'activer votre compte.
+            Votre inscription a bien été prise en compte. Vos documents ont été transmis à l'administration pour validation.
           </p>
           <button 
             onClick={() => navigate('/')}
@@ -255,7 +278,7 @@ const Register = () => {
                Documents et Photos
              </h3>
              <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-               Veuillez fournir une photo de profil et une pièce d'identité valide.
+               Veuillez fournir une photo de profil et une pièce d'identité valide. Ces documents seront stockés de manière sécurisée.
              </p>
              
              <div className="space-y-6">

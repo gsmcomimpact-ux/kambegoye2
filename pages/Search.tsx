@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, NavigateFunction } from 'react-router-dom';
-import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map } from 'lucide-react';
+import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock } from 'lucide-react';
 import { db } from '../services/db';
 import { Worker, Specialty, Neighborhood } from '../types';
 
@@ -18,20 +18,37 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
   const specialtyName = specialties.find(s => s.id === worker.specialtyId)?.name;
   const neighborhoodName = neighborhoods.find(n => n.id === worker.neighborhoodId)?.name;
 
+  // Masquer le nom si pas payé
+  const displayName = hasPaid 
+    ? `${worker.firstName} ${worker.lastName}` 
+    : `${worker.firstName} ${worker.lastName.charAt(0)}.`;
+
   return (
     <div className={`rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border ${isNearby ? 'border-orange-200 bg-orange-50 dark:bg-gray-800 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
-      <div className="relative h-48">
+      <div className="relative h-48 bg-gray-100 overflow-hidden">
+        {/* Photo floutée si pas payé */}
         <img 
           src={worker.photoUrl} 
-          alt={`${worker.firstName} ${worker.lastName}`} 
-          className="w-full h-full object-cover"
+          alt="Ouvrier" 
+          className={`w-full h-full object-cover transition-all duration-300 ${!hasPaid ? 'blur-[4px] scale-110 opacity-80' : ''}`}
         />
-        {worker.isVerified && (
+        
+        {/* Overlay Cadenas si pas payé */}
+        {!hasPaid && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
+            <div className="bg-white/90 p-3 rounded-full shadow-lg">
+              <Lock className="w-6 h-6 text-gray-700" />
+            </div>
+          </div>
+        )}
+
+        {worker.isVerified && hasPaid && (
           <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center shadow-md z-10">
             <BadgeCheck className="w-3 h-3 mr-1" /> Vérifié
           </div>
         )}
-        <div className={`absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-semibold ${
+        
+        <div className={`absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-semibold z-10 ${
           worker.availability === 'available' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {worker.availability === 'available' ? 'Disponible' : 'Occupé'}
@@ -41,7 +58,7 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
       <div className="p-4">
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{worker.firstName} {worker.lastName}</h3>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{displayName}</h3>
             <p className="text-brand-600 font-medium">{specialtyName}</p>
           </div>
           <div className="flex items-center bg-yellow-100 text-yellow-800 px-2 py-1 rounded-md">
@@ -73,10 +90,10 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
             <div className="relative group">
                <button 
                 onClick={() => navigate('/payment')}
-                className="block w-full text-center bg-gray-200 dark:bg-gray-700 text-gray-500 dark:text-gray-400 py-2 rounded-md cursor-pointer hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors font-medium flex items-center justify-center"
+                className="block w-full text-center bg-gray-900 text-white py-2 rounded-md cursor-pointer hover:bg-gray-800 transition-colors font-medium flex items-center justify-center shadow-sm"
               >
                 <Lock className="w-4 h-4 mr-2" />
-                Voir Contact
+                Débloquer le contact
               </button>
             </div>
           )}
@@ -98,6 +115,7 @@ const Search = () => {
   const [hasPaid, setHasPaid] = useState(false);
   const [loading, setLoading] = useState(true);
   const [consultationPrice, setConsultationPrice] = useState(200);
+  const [timeLeft, setTimeLeft] = useState(0);
 
   // Filters
   const specialtyFilter = searchParams.get('specialty') || '';
@@ -159,11 +177,32 @@ const Search = () => {
           setNearbyWorkers([]);
       }
       
-      setHasPaid(db.hasPaid());
+      // Initial status check
+      const paid = db.hasPaid();
+      setHasPaid(paid);
+      if (paid) {
+          setTimeLeft(db.getSessionTimeRemaining());
+      }
       setLoading(false);
     };
     loadData();
   }, [specialtyFilter, locationFilter]);
+
+  // Timer Effect
+  useEffect(() => {
+    let interval: any;
+    if (hasPaid && timeLeft > 0) {
+        interval = setInterval(() => {
+            const remaining = db.getSessionTimeRemaining();
+            setTimeLeft(remaining);
+            if (remaining <= 0) {
+                setHasPaid(false); // Session expired
+                clearInterval(interval);
+            }
+        }, 1000);
+    }
+    return () => clearInterval(interval);
+  }, [hasPaid, timeLeft]);
 
   const handleFilterChange = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
@@ -173,6 +212,12 @@ const Search = () => {
       newParams.delete(key);
     }
     setSearchParams(newParams);
+  };
+  
+  const formatTime = (seconds: number) => {
+      const m = Math.floor(seconds / 60);
+      const s = seconds % 60;
+      return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   return (
@@ -203,14 +248,14 @@ const Search = () => {
         </div>
       </div>
 
-      {/* Paywall Banner */}
-      {!hasPaid && (workers.length > 0 || nearbyWorkers.length > 0) && (
+      {/* Paywall Banner OR Timer */}
+      {!hasPaid && (workers.length > 0 || nearbyWorkers.length > 0) ? (
         <div className="bg-accent-600 text-white rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between shadow-lg animate-pulse">
           <div className="flex items-center mb-4 sm:mb-0">
             <Lock className="h-6 w-6 mr-3" />
             <div>
               <p className="font-bold text-lg">Débloquez les contacts !</p>
-              <p className="text-sm opacity-90">Payez {consultationPrice} FCFA une seule fois pour voir les numéros de 3 ouvriers recommandés.</p>
+              <p className="text-sm opacity-90">Payez {consultationPrice} FCFA pour accéder aux ouvriers pendant 5 minutes.</p>
             </div>
           </div>
           <button 
@@ -220,6 +265,11 @@ const Search = () => {
             Payer {consultationPrice} F
           </button>
         </div>
+      ) : hasPaid && timeLeft > 0 && (
+          <div className="bg-green-100 text-green-800 border border-green-200 rounded-lg p-3 mb-6 flex items-center justify-center shadow-sm">
+             <Clock className="w-5 h-5 mr-2" />
+             <span className="font-bold">Session active : {formatTime(timeLeft)} restants</span>
+          </div>
       )}
 
       {/* Results Grid - Exact Matches */}

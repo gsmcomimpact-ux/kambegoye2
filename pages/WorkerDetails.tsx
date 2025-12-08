@@ -19,7 +19,7 @@ const WorkerDetails = () => {
   const mapInstanceRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
-    // Paywall Check
+    // Paywall Check with Session Logic
     if (!db.hasPaid()) {
       navigate('/payment');
       return;

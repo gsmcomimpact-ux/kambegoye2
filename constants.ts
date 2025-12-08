@@ -3,6 +3,12 @@ import { Specialty, Neighborhood, Worker, Product, ProductCategory } from './typ
 
 export const PAYMENT_AMOUNT = 200;
 
+// CONFIGURATION DES NUMEROS MARCHANDS (POUR RECEPTION PAIEMENT)
+export const MERCHANT_NUMBERS = {
+  MYNITA: '90 00 00 00', // À remplacer par le vrai numéro Moov/Mynita
+  AMANATA: '97 39 05 69'  // Numéro Airtel/Amanata (Basé sur le contact admin)
+};
+
 // CONFIGURATION I-PAY.MONEY
 export const IPAY_CONFIG = {
   PUBLIC_KEY: 'pk_e979c6d9f5524f4c9571c72c4714d5ae',

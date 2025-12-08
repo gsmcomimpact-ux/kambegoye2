@@ -11,11 +11,13 @@ const KEYS = {
   PRODUCTS: 'kambegoye_products',
   PRODUCT_CATEGORIES: 'kambegoye_product_categories',
   PROJECT_REQUESTS: 'kambegoye_project_requests',
-  PAID_SESSION: 'kambegoye_paid_session',
+  PAID_SESSION_TIMESTAMP: 'kambegoye_paid_session_ts', // Updated key for timestamp
   SETTINGS: 'kambegoye_settings',
   ADMIN_AUTH: 'kambegoye_admin_auth',
   MEDIA: 'kambegoye_media'
 };
+
+const SESSION_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
 
 const ADMIN_CONTACT = {
     phone: '22797390569',
@@ -179,6 +181,9 @@ const initiateIPayPayment = async (amount: number, method: string, phone: string
   const baseUrl = window.location.origin; 
   const returnUrl = `${baseUrl}/payment/callback?ref=${reference}`;
   const cancelUrl = `${baseUrl}/payment?error=cancel`;
+
+  // SAVE CONTEXT: We store the phone number and method temporarily so we can retrieve it in the callback
+  sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method }));
 
   const payload = {
     amount: amount,
@@ -386,30 +391,65 @@ export const db = {
 
           const settings = safeParse(KEYS.SETTINGS, { consultationPrice: 200 });
           
+          // RETRIEVE CONTEXT (Phone, Method)
+          const contextStr = sessionStorage.getItem(`pending_tx_${reference}`);
+          const context = contextStr ? JSON.parse(contextStr) : { phone: 'N/A', method: 'Mynita' };
+
           const newTx: Transaction = {
               id: reference,
               amount: settings.consultationPrice,
               date: new Date().toISOString(),
               status: 'success',
-              method: 'Mynita', // Ideally retrieved from API, hardcoded for fallback
-              userId: 'user-' + Date.now()
+              method: context.method,
+              userId: 'user-' + Date.now(),
+              clientPhone: context.phone // STORE CLIENT PHONE
           };
           transactions.unshift(newTx);
           localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
           
-          // Enable Session
-          sessionStorage.setItem(KEYS.PAID_SESSION, 'true');
+          // Enable Session with TIMESTAMP (Expires in 5 mins)
+          sessionStorage.setItem(KEYS.PAID_SESSION_TIMESTAMP, Date.now().toString());
 
           // Notify Admin
-          await notifyAdmin('NOUVEAU PAIEMENT', `Paiement reçu de ${settings.consultationPrice} FCFA. Ref: ${reference}`);
+          await notifyAdmin('NOUVEAU PAIEMENT', `Paiement reçu de ${settings.consultationPrice} FCFA via ${context.method}. Client: ${context.phone}. Ref: ${reference}`);
           
+          // Cleanup context
+          sessionStorage.removeItem(`pending_tx_${reference}`);
+
           return true;
       }
       return false;
   },
 
+  // CHECK ACCESS STATUS WITH 5 MINUTE TIMEOUT
   hasPaid: () => {
-      return sessionStorage.getItem(KEYS.PAID_SESSION) === 'true';
+      const sessionStartStr = sessionStorage.getItem(KEYS.PAID_SESSION_TIMESTAMP);
+      if (!sessionStartStr) return false;
+
+      const sessionStart = parseInt(sessionStartStr, 10);
+      const now = Date.now();
+
+      // Check if session has expired
+      if (now - sessionStart > SESSION_DURATION_MS) {
+          // Session expired
+          sessionStorage.removeItem(KEYS.PAID_SESSION_TIMESTAMP);
+          return false;
+      }
+
+      return true;
+  },
+  
+  // Helper to get remaining time in seconds
+  getSessionTimeRemaining: () => {
+      const sessionStartStr = sessionStorage.getItem(KEYS.PAID_SESSION_TIMESTAMP);
+      if (!sessionStartStr) return 0;
+      
+      const sessionStart = parseInt(sessionStartStr, 10);
+      const now = Date.now();
+      const elapsed = now - sessionStart;
+      const remaining = SESSION_DURATION_MS - elapsed;
+      
+      return remaining > 0 ? Math.floor(remaining / 1000) : 0;
   },
 
   getStats: async () => {
