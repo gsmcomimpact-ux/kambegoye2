@@ -1,6 +1,6 @@
 {
   "name": "KAMBEGOYENET",
-  "description": "Plateforme de mise en relation entre ouvriers spécialisés et clients à Niamey.",
+  "description": "Plateforme de mise en relation entre ouvriers spécialisés et clients à Niamey. et environ",
   "requestFramePermissions": [
     "geolocation"
   ]
