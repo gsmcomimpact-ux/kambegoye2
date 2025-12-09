@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Upload, CheckCircle, AlertCircle, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
@@ -15,13 +16,15 @@ const Register = () => {
     firstName: '',
     lastName: '',
     specialtyId: '',
-    neighborhoodId: '',
+    countryId: 'NE',   // Hardcoded for Niger
+    cityId: 'NE_NIA',  // Hardcoded for Niamey
+    neighborhoodId: '', 
     phone: '',
     whatsapp: '',
     photoUrl: 'https://picsum.photos/200', 
     idCardUrl: '',
-    latitude: 13.51,
-    longitude: 2.11,
+    latitude: 0,
+    longitude: 0,
     workImages: [] as string[]
   });
 
@@ -40,6 +43,19 @@ const Register = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
+  };
+
+  const handleNeighborhoodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
+    const hoodId = e.target.value;
+    const selectedHood = neighborhoods.find(n => n.id === hoodId);
+    
+    setFormData({
+      ...formData,
+      neighborhoodId: hoodId,
+      // Auto-assign GPS coordinates based on neighborhood
+      latitude: selectedHood?.latitude || 0,
+      longitude: selectedHood?.longitude || 0
+    });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'id' | 'photo') => {
@@ -104,7 +120,6 @@ const Register = () => {
 
         // 1. SAUVEGARDE PIECE IDENTITE (MEDIA LIBRARY)
         if (idFile && formData.idCardUrl) {
-             console.log("Saving ID to Library...");
              await db.saveMedia({
                  id: `ID_${timestamp}`,
                  type: 'document',
@@ -116,7 +131,6 @@ const Register = () => {
 
         // 2. SAUVEGARDE PHOTO PROFIL (MEDIA LIBRARY)
         if (photoFile && formData.photoUrl) {
-            console.log("Saving Photo to Library...");
             await db.saveMedia({
                  id: `PHOTO_${timestamp}`,
                  type: 'image',
@@ -128,9 +142,7 @@ const Register = () => {
 
         // 3. SAUVEGARDE PHOTOS CHANTIER (MEDIA LIBRARY)
         if (formData.workImages.length > 0) {
-            console.log("Saving Work Images...");
             for (let i = 0; i < formData.workImages.length; i++) {
-                 // Only save if it's a base64 string (new upload)
                  if (formData.workImages[i].startsWith('data:')) {
                      await db.saveMedia({
                          id: `WORK_${timestamp}_${i}`,
@@ -143,7 +155,6 @@ const Register = () => {
             }
         }
 
-        // Simulate API call to register worker
         const success = await db.registerWorker({
             ...formData
         });
@@ -186,7 +197,7 @@ const Register = () => {
       <div className="text-center mb-10">
         <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-4">Devenir Ouvrier KAMBEGOYE</h1>
         <p className="text-lg text-gray-600 dark:text-gray-400">
-          Inscrivez-vous gratuitement pour proposer vos services à des milliers de clients à Niamey.
+          Inscrivez-vous gratuitement pour proposer vos services à Niamey.
         </p>
       </div>
 
@@ -197,6 +208,8 @@ const Register = () => {
         </div>
         
         <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
+          
+          {/* Identity */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prénom</label>
@@ -220,33 +233,37 @@ const Register = () => {
             </div>
           </div>
 
+          {/* Location & Specialty */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Métier / Spécialité</label>
-              <select
-                name="specialtyId"
-                required
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleChange}
-              >
-                <option value="">Choisir...</option>
-                {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quartier de résidence</label>
+             {/* Neighborhood */}
+             <div>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quartier (Niamey)</label>
               <select
                 name="neighborhoodId"
-                required
                 className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleChange}
+                onChange={handleNeighborhoodChange}
               >
-                <option value="">Choisir...</option>
+                <option value="">Choisir un quartier...</option>
                 {neighborhoods.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
+             
+             {/* Specialty */}
+             <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Métier / Spécialité</label>
+                <select
+                  name="specialtyId"
+                  required
+                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  onChange={handleChange}
+                >
+                  <option value="">Choisir...</option>
+                  {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+                </select>
+              </div>
           </div>
 
+          {/* Contacts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Téléphone (Appels)</label>
@@ -260,7 +277,7 @@ const Register = () => {
               />
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp</label>
+              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp (Format international)</label>
               <input
                 type="tel"
                 name="whatsapp"

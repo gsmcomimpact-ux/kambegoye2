@@ -1,6 +1,6 @@
 
 
-import React from 'react';
+import React, { useState } from 'react';
 
 const CGU = () => {
   return (
@@ -27,7 +27,7 @@ const CGU = () => {
         <section>
           <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">3. Paiement</h2>
           <p>
-            L'accès aux coordonnées complètes des ouvriers nécessite un paiement forfaitaire de 100 FCFA via Mobile Money. 
+            L'accès aux coordonnées complètes des ouvriers nécessite un paiement forfaitaire de 200 FCFA via Mobile Money. 
             Ce paiement donne accès à une liste de contacts pour une durée limitée. Ce montant est non remboursable, même si 
             l'utilisateur ne conclut aucun contrat avec les ouvriers proposés.
           </p>

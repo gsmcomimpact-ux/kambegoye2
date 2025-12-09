@@ -1,11 +1,14 @@
 
+
 import React, { useEffect, useState } from 'react';
-import { FileText, Phone, CheckCircle, Clock, XCircle, MessageSquare } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { FileText, Phone, CheckCircle, Clock, XCircle, MessageSquare, Image as ImageIcon, FileSpreadsheet } from 'lucide-react';
 import { db } from '../../services/db';
 import { ProjectRequest } from '../../types';
 
 const ProjectRequests = () => {
   const [requests, setRequests] = useState<ProjectRequest[]>([]);
+  const navigate = useNavigate();
 
   useEffect(() => {
     loadData();
@@ -22,10 +25,14 @@ const ProjectRequests = () => {
   };
 
   const contactClient = (req: ProjectRequest) => {
-      const msg = `Bonjour ${req.clientName}, suite à votre demande de projet "${req.title}" sur KAMBEGOYE, nous souhaitons faire un point.`;
+      const msg = `Bonjour ${req.clientName}, suite à votre demande de projet ${req.reference ? `(${req.reference})` : ''} "${req.title}" sur KAMBEGOYE, nous souhaitons faire un point.`;
       const url = `https://wa.me/${req.clientPhone}?text=${encodeURIComponent(msg)}`;
       window.open(url, '_blank');
       handleStatusChange(req.id, 'contacted');
+  };
+
+  const generateQuote = (req: ProjectRequest) => {
+    navigate('/admin/devis', { state: { projectRequest: req } });
   };
 
   return (
@@ -38,9 +45,16 @@ const ProjectRequests = () => {
              <div className="p-6">
                 <div className="flex justify-between items-start mb-4">
                    <div>
-                       <span className="inline-block px-2 py-1 text-xs font-bold uppercase tracking-wider text-accent-600 bg-accent-50 rounded mb-2">
-                           {req.category}
-                       </span>
+                       <div className="flex items-center gap-2 mb-2">
+                           {req.reference && (
+                               <span className="inline-block px-2 py-1 text-xs font-bold text-gray-600 bg-gray-200 rounded">
+                                   {req.reference}
+                               </span>
+                           )}
+                           <span className="inline-block px-2 py-1 text-xs font-bold uppercase tracking-wider text-accent-600 bg-accent-50 rounded">
+                               {req.category}
+                           </span>
+                       </div>
                        <h3 className="text-xl font-bold text-gray-900 dark:text-white">{req.title}</h3>
                        <p className="text-sm text-gray-500 dark:text-gray-400">
                            Reçu le {new Date(req.date).toLocaleDateString()} à {new Date(req.date).toLocaleTimeString()}
@@ -56,7 +70,25 @@ const ProjectRequests = () => {
 
                 <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-4">
                     <p className="text-gray-700 dark:text-gray-300 whitespace-pre-line">{req.description}</p>
-                    <div className="mt-4 flex flex-wrap gap-4 text-sm">
+                    
+                    {/* Images Section */}
+                    {req.images && req.images.length > 0 && (
+                        <div className="mt-4 border-t border-gray-200 dark:border-gray-600 pt-4">
+                            <h4 className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-2 flex items-center">
+                                <ImageIcon className="w-4 h-4 mr-2" />
+                                Pièces jointes ({req.images.length})
+                            </h4>
+                            <div className="flex flex-wrap gap-2">
+                                {req.images.map((img, idx) => (
+                                    <a key={idx} href={img} target="_blank" rel="noreferrer" className="block relative h-20 w-20 rounded border border-gray-300 overflow-hidden hover:opacity-80 transition-opacity">
+                                        <img src={img} alt={`Pièce jointe ${idx}`} className="w-full h-full object-cover" />
+                                    </a>
+                                ))}
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="mt-4 flex flex-wrap gap-4 text-sm border-t border-gray-200 dark:border-gray-600 pt-4">
                         {req.budget && (
                             <div className="font-semibold text-gray-900 dark:text-white">
                                 Budget: <span className="font-normal">{req.budget} FCFA</span>
@@ -81,19 +113,27 @@ const ProjectRequests = () => {
                         </div>
                     </div>
 
-                    <div className="flex gap-2">
+                    <div className="flex flex-wrap gap-2 justify-end">
                         <button 
                             onClick={() => contactClient(req)}
-                            className="flex items-center px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors"
+                            className="flex items-center px-3 py-2 bg-green-500 text-white rounded hover:bg-green-600 transition-colors text-sm"
                         >
                             <MessageSquare className="w-4 h-4 mr-2" />
                             WhatsApp
                         </button>
                         
+                        <button 
+                            onClick={() => generateQuote(req)}
+                            className="flex items-center px-3 py-2 bg-brand-600 text-white rounded hover:bg-brand-700 transition-colors text-sm"
+                        >
+                            <FileSpreadsheet className="w-4 h-4 mr-2" />
+                            Générer Devis
+                        </button>
+                        
                         {req.status !== 'completed' && (
                             <button 
                                 onClick={() => handleStatusChange(req.id, 'completed')}
-                                className="flex items-center px-4 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 transition-colors"
+                                className="flex items-center px-3 py-2 bg-gray-200 dark:bg-gray-700 text-gray-700 dark:text-gray-300 rounded hover:bg-gray-300 transition-colors text-sm"
                             >
                                 <CheckCircle className="w-4 h-4 mr-2" />
                                 Terminer
@@ -103,7 +143,7 @@ const ProjectRequests = () => {
                         {req.status !== 'cancelled' && req.status !== 'completed' && (
                             <button 
                                 onClick={() => handleStatusChange(req.id, 'cancelled')}
-                                className="flex items-center px-4 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors"
+                                className="flex items-center px-3 py-2 bg-red-100 text-red-700 rounded hover:bg-red-200 transition-colors text-sm"
                             >
                                 <XCircle className="w-4 h-4" />
                             </button>

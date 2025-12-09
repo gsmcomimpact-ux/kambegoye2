@@ -24,6 +24,7 @@ import AdminProducts from './pages/admin/Products';
 import AdminProductCategories from './pages/admin/ProductCategories';
 import AdminProjectRequests from './pages/admin/ProjectRequests';
 import AdminMediaLibrary from './pages/admin/MediaLibrary';
+import AdminQuotes from './pages/admin/Quotes';
 import CGU from './pages/Legal/CGU';
 import Mentions from './pages/Legal/Mentions';
 
@@ -67,6 +68,7 @@ const App = () => {
           <Route path="produits" element={<AdminProducts />} />
           <Route path="categories-produits" element={<AdminProductCategories />} />
           <Route path="projets" element={<AdminProjectRequests />} />
+          <Route path="devis" element={<AdminQuotes />} />
           <Route path="paiements" element={<AdminTransactions />} />
           <Route path="media" element={<AdminMediaLibrary />} />
           <Route path="data" element={<AdminDataManagement />} />

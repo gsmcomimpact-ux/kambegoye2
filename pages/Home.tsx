@@ -1,6 +1,8 @@
+
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, MapPin, CheckCircle, Shield } from 'lucide-react';
+import { Search, CheckCircle, Shield, MapPin } from 'lucide-react';
 import { db } from '../services/db';
 import { Specialty, Neighborhood } from '../types';
 
@@ -14,8 +16,10 @@ const Home = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const s = await db.getSpecialties();
-      const n = await db.getNeighborhoods();
+      const [s, n] = await Promise.all([
+        db.getSpecialties(),
+        db.getNeighborhoods()
+      ]);
       setSpecialties(s);
       setNeighborhoods(n);
     };
@@ -26,7 +30,8 @@ const Home = () => {
     e.preventDefault();
     const params = new URLSearchParams();
     if (selectedSpecialty) params.append('specialty', selectedSpecialty);
-    if (selectedNeighborhood) params.append('location', selectedNeighborhood);
+    if (selectedNeighborhood) params.append('neighborhood', selectedNeighborhood);
+    
     navigate(`/search?${params.toString()}`);
   };
 
@@ -46,11 +51,13 @@ const Home = () => {
             Trouvez les meilleurs <span className="text-accent-500">ouvriers</span> à Niamey
           </h1>
           <p className="text-xl text-gray-300 text-center mb-10 max-w-2xl mx-auto">
-            Électriciens, Plombiers, Maçons... Disponibles dans votre quartier en quelques clics.
+            Plombiers, électriciens, maçons... Des experts qualifiés près de chez vous dans la capitale.
           </p>
 
-          <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-xl p-2 md:p-4">
-            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-4">
+          <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-xl p-3 md:p-4">
+            <form onSubmit={handleSearch} className="flex flex-col md:flex-row gap-3">
+              
+              {/* Specialty Select */}
               <div className="flex-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                    <Search className="h-5 w-5 text-gray-400" />
@@ -65,6 +72,7 @@ const Home = () => {
                 </select>
               </div>
 
+              {/* Neighborhood Select */}
               <div className="flex-1 relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                    <MapPin className="h-5 w-5 text-gray-400" />
@@ -79,14 +87,14 @@ const Home = () => {
                 </select>
               </div>
 
-              <button type="submit" className="bg-brand-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-brand-700 transition-colors shadow-md">
+              <button type="submit" className="bg-brand-600 text-white px-8 py-3 rounded-md font-semibold hover:bg-brand-700 transition-colors shadow-md whitespace-nowrap">
                 Rechercher
               </button>
             </form>
           </div>
         </div>
       </div>
-
+      
       {/* Features */}
       <div className="py-16 bg-gray-50 dark:bg-gray-800">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -95,8 +103,8 @@ const Home = () => {
               <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
                 <Search className="h-6 w-6" />
               </div>
-              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Recherche Facile</h3>
-              <p className="text-gray-500 dark:text-gray-300">Filtrez par métier et par quartier pour trouver le professionnel le plus proche.</p>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Recherche Locale</h3>
+              <p className="text-gray-500 dark:text-gray-300">Trouvez un professionnel qualifié directement à Niamey.</p>
             </div>
             <div className="text-center p-6 bg-white dark:bg-gray-700 rounded-xl shadow-sm">
               <div className="w-12 h-12 bg-brand-100 text-brand-600 rounded-full flex items-center justify-center mx-auto mb-4">
@@ -110,7 +118,7 @@ const Home = () => {
                 <CheckCircle className="h-6 w-6" />
               </div>
               <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-2">Qualité Assurée</h3>
-              <p className="text-gray-500 dark:text-gray-300">Accédez aux meilleurs profils notés par la communauté de Niamey.</p>
+              <p className="text-gray-500 dark:text-gray-300">Accédez aux meilleurs profils notés par la communauté.</p>
             </div>
           </div>
         </div>

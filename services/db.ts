@@ -1,12 +1,12 @@
-
-
-import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem } from '../types';
-import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG } from '../constants';
+import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City } from '../types';
+import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES } from '../constants';
 
 // Keys for LocalStorage
 const KEYS = {
   WORKERS: 'kambegoye_workers',
   SPECIALTIES: 'kambegoye_specialties',
+  COUNTRIES: 'kambegoye_countries',
+  CITIES: 'kambegoye_cities',
   NEIGHBORHOODS: 'kambegoye_neighborhoods',
   TRANSACTIONS: 'kambegoye_transactions',
   PRODUCTS: 'kambegoye_products',
@@ -15,7 +15,8 @@ const KEYS = {
   PAID_SESSION_TIMESTAMP: 'kambegoye_paid_session_ts', // Updated key for timestamp
   SETTINGS: 'kambegoye_settings',
   ADMIN_AUTH: 'kambegoye_admin_auth',
-  MEDIA: 'kambegoye_media'
+  MEDIA: 'kambegoye_media',
+  QUOTES: 'kambegoye_quotes'
 };
 
 const SESSION_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
@@ -56,12 +57,14 @@ const initDB = () => {
   if (!localStorage.getItem(KEYS.WORKERS)) {
     localStorage.setItem(KEYS.WORKERS, JSON.stringify(INITIAL_WORKERS));
   } else {
-    // Migration: Ensure all workers have accountStatus and views
+    // Migration: Ensure all workers have accountStatus, views, and location
     const workers = safeParse<Worker[]>(KEYS.WORKERS, []);
     const updatedWorkers = workers.map(w => ({
         ...w,
         accountStatus: w.accountStatus || 'active',
-        views: w.views || 0 // Initialize views if missing
+        views: w.views || 0,
+        countryId: w.countryId || 'NE', // Default to Niger for migration
+        cityId: w.cityId || 'NE_NIA'    // Default to Niamey for migration
     }));
     localStorage.setItem(KEYS.WORKERS, JSON.stringify(updatedWorkers));
   }
@@ -87,25 +90,42 @@ const initDB = () => {
     }
   }
 
+  // Countries Init
+  if (!localStorage.getItem(KEYS.COUNTRIES)) {
+      localStorage.setItem(KEYS.COUNTRIES, JSON.stringify(INITIAL_COUNTRIES));
+  }
+
+  // Cities Merge
+  const storedCities = safeParse<City[]>(KEYS.CITIES, []);
+  if (storedCities.length === 0) {
+      localStorage.setItem(KEYS.CITIES, JSON.stringify(INITIAL_CITIES));
+  } else {
+     // Merge new cities if not present
+     const existingIds = new Set(storedCities.map(c => c.id));
+     const citiesToUpdate = [...storedCities];
+     let cityAdded = false;
+     INITIAL_CITIES.forEach(c => {
+         if(!existingIds.has(c.id)){
+             citiesToUpdate.push(c);
+             cityAdded = true;
+         }
+     });
+     if(cityAdded) {
+         localStorage.setItem(KEYS.CITIES, JSON.stringify(citiesToUpdate));
+     }
+  }
+
   // Neighborhoods Merge
   const storedHoods = safeParse<Neighborhood[]>(KEYS.NEIGHBORHOODS, []);
   if (storedHoods.length === 0) {
     localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(INITIAL_NEIGHBORHOODS));
   } else {
-    const existingIds = new Set(storedHoods.map(n => n.id));
-    let hasChanges = false;
-    const updatedHoods = [...storedHoods];
-
-    INITIAL_NEIGHBORHOODS.forEach(initHood => {
-      if (!existingIds.has(initHood.id)) {
-        updatedHoods.push(initHood);
-        hasChanges = true;
-      }
-    });
-
-    if (hasChanges) {
-      localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(updatedHoods));
-    }
+     // Migration: Ensure existing neighborhoods have cityId
+     const migratedHoods = storedHoods.map(n => ({
+         ...n,
+         cityId: n.cityId || 'NE_NIA' // Default to Niamey for legacy data
+     }));
+     localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(migratedHoods));
   }
   
   // Products Init
@@ -127,15 +147,26 @@ const initDB = () => {
     localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify([]));
   }
 
-  if (!localStorage.getItem(KEYS.SETTINGS)) {
+  // Settings Init with Migration
+  const settings = safeParse(KEYS.SETTINGS, null);
+  if (!settings) {
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify({ consultationPrice: PAYMENT_AMOUNT }));
+  } else if (settings.consultationPrice === 100) {
+    // Migration: Update old default 100 to new default PAYMENT_AMOUNT (200)
+    settings.consultationPrice = PAYMENT_AMOUNT;
+    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
   }
+
   if (!localStorage.getItem(KEYS.ADMIN_AUTH)) {
     localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify({ username: 'admin', password: 'admin' }));
   }
   
   if (!localStorage.getItem(KEYS.MEDIA)) {
       localStorage.setItem(KEYS.MEDIA, JSON.stringify([]));
+  }
+
+  if (!localStorage.getItem(KEYS.QUOTES)) {
+    localStorage.setItem(KEYS.QUOTES, JSON.stringify([]));
   }
 };
 
@@ -180,55 +211,26 @@ export interface PaymentInitiationResult {
 const initiateIPayPayment = async (amount: number, method: string, phone: string): Promise<PaymentInitiationResult> => {
   const reference = generateUUID();
   const baseUrl = window.location.origin; 
-  const returnUrl = `${baseUrl}/payment/callback?ref=${reference}`;
-  const cancelUrl = `${baseUrl}/payment?error=cancel`;
+  // const returnUrl = `${baseUrl}/payment/callback?ref=${reference}`;
+  // const cancelUrl = `${baseUrl}/payment?error=cancel`;
 
-  // SAVE CONTEXT: We store the phone number and method temporarily so we can retrieve it in the callback
-  sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method }));
+  // SAVE CONTEXT: We store the phone number, method and AMOUNT temporarily
+  // Storing amount allows validation to check correct value later if needed
+  sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method, amount }));
 
-  const payload = {
-    amount: amount,
-    currency: 'XOF', 
-    customer_phone_number: phone,
-    payment_method: method.toLowerCase(), 
-    invoice_reference: reference,
-    description: 'Acces KAMBEGOYE',
-    return_url: returnUrl,
-    cancel_url: cancelUrl
+  // Use the static link provided by user
+  const iPayStaticLink = "https://i-pay.money/external_payments/2ae97b1832eb/preview";
+  
+  // For demo, wrap in simulation page but functionality remains
+  const paymentUrl = `${baseUrl}/payment/simulation?amount=${amount}&method=${method}&phone=${phone}&ref=${reference}`;
+
+  console.log('--- INITIALISATION I-PAY (SIMULATION) ---', { amount, method, phone, reference });
+
+  return {
+      success: true,
+      paymentUrl: paymentUrl,
+      reference: reference
   };
-
-  console.log('--- INITIALISATION I-PAY (REDIRECT MODE) ---', payload);
-
-  try {
-    const response = await fetch(IPAY_CONFIG.API_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${IPAY_CONFIG.SECRET_KEY}` 
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (response.ok) {
-        const data = await response.json();
-        if (data.payment_url) {
-            return {
-                success: true,
-                paymentUrl: data.payment_url,
-                reference: reference
-            };
-        }
-    }
-    throw new Error("API call failed or no URL returned");
-
-  } catch (error) {
-    console.warn('Mode Simulation: Redirection vers le portail de paiement simulé.');
-    return { 
-        success: true, 
-        paymentUrl: `/payment/simulation?amount=${amount}&ref=${reference}&method=${method}&phone=${phone}`, 
-        reference: reference
-    };
-  }
 };
 
 const verifyIPayPayment = async (reference: string): Promise<'pending' | 'success' | 'failed'> => {
@@ -344,9 +346,27 @@ export const db = {
     return safeParse(KEYS.SPECIALTIES, []);
   },
 
-  getNeighborhoods: async () => {
+  getCountries: async () => {
     await delay(100);
-    return safeParse(KEYS.NEIGHBORHOODS, []);
+    return safeParse(KEYS.COUNTRIES, INITIAL_COUNTRIES);
+  },
+
+  getCities: async (countryId?: string) => {
+    await delay(100);
+    const cities: City[] = safeParse(KEYS.CITIES, INITIAL_CITIES);
+    if (countryId) {
+        return cities.filter(c => c.countryId === countryId);
+    }
+    return cities;
+  },
+
+  getNeighborhoods: async (cityId?: string) => {
+    await delay(100);
+    const hoods: Neighborhood[] = safeParse(KEYS.NEIGHBORHOODS, []);
+    if (cityId) {
+        return hoods.filter(h => h.cityId === cityId);
+    }
+    return hoods;
   },
 
   getSettings: async () => {
@@ -375,9 +395,10 @@ export const db = {
   },
 
   // Transactions
-  initiateTransaction: async (method: string, phone: string) => {
+  initiateTransaction: async (method: string, phone: string, customAmount?: number) => {
       const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
-      return initiateIPayPayment(settings.consultationPrice, method, phone);
+      const amount = customAmount || settings.consultationPrice;
+      return initiateIPayPayment(amount, method, phone);
   },
 
   finalizeTransaction: async (reference: string) => {
@@ -392,13 +413,13 @@ export const db = {
 
           const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
           
-          // RETRIEVE CONTEXT (Phone, Method)
+          // RETRIEVE CONTEXT (Phone, Method, Amount)
           const contextStr = sessionStorage.getItem(`pending_tx_${reference}`);
-          const context = contextStr ? JSON.parse(contextStr) : { phone: 'N/A', method: 'Mynita' };
+          const context = contextStr ? JSON.parse(contextStr) : { phone: 'N/A', method: 'Mynita', amount: settings.consultationPrice };
 
           const newTx: Transaction = {
               id: reference,
-              amount: settings.consultationPrice,
+              amount: context.amount || settings.consultationPrice,
               date: new Date().toISOString(),
               status: 'success',
               method: context.method,
@@ -409,10 +430,13 @@ export const db = {
           localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
           
           // Enable Session with TIMESTAMP (Expires in 5 mins)
-          sessionStorage.setItem(KEYS.PAID_SESSION_TIMESTAMP, Date.now().toString());
+          // Only enable session if it was a consultation payment (standard amount)
+          if (newTx.amount === settings.consultationPrice) {
+             sessionStorage.setItem(KEYS.PAID_SESSION_TIMESTAMP, Date.now().toString());
+          }
 
           // Notify Admin
-          await notifyAdmin('NOUVEAU PAIEMENT', `Paiement reçu de ${settings.consultationPrice} FCFA via ${context.method}. Client: ${context.phone}. Ref: ${reference}`);
+          await notifyAdmin('NOUVEAU PAIEMENT', `Paiement reçu de ${newTx.amount} FCFA via ${context.method}. Client: ${context.phone}. Ref: ${reference}`);
           
           // Cleanup context
           sessionStorage.removeItem(`pending_tx_${reference}`);
@@ -420,6 +444,16 @@ export const db = {
           return true;
       }
       return false;
+  },
+
+  forceValidatePayment: async (phone: string, method?: string) => {
+      const reference = generateUUID();
+      // Force simulation success status
+      sessionStorage.setItem(`sim_status_${reference}`, 'success');
+      // Store Mynita as default or passed method if expanded in future
+      sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method: method || 'Mynita' }));
+      
+      return await db.finalizeTransaction(reference);
   },
 
   // CHECK ACCESS STATUS WITH 5 MINUTE TIMEOUT
@@ -517,7 +551,8 @@ export const db = {
       neighborhoods: safeParse(KEYS.NEIGHBORHOODS, []),
       transactions: safeParse(KEYS.TRANSACTIONS, []),
       products: safeParse(KEYS.PRODUCTS, []),
-      categories: safeParse(KEYS.PRODUCT_CATEGORIES, [])
+      categories: safeParse(KEYS.PRODUCT_CATEGORIES, []),
+      quotes: safeParse(KEYS.QUOTES, [])
     };
   },
 
@@ -529,6 +564,7 @@ export const db = {
       if (data.transactions) localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(data.transactions));
       if (data.products) localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(data.products));
       if (data.categories) localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(data.categories));
+      if (data.quotes) localStorage.setItem(KEYS.QUOTES, JSON.stringify(data.quotes));
       return true;
     } catch (e) {
       return false;
@@ -552,97 +588,131 @@ export const db = {
       return safeParse(KEYS.PRODUCTS, []);
   },
   getProductById: async (id: string) => {
-      await delay(100);
-      const products: Product[] = safeParse(KEYS.PRODUCTS, []);
-      return products.find(p => p.id === id);
+    await delay(200);
+    const products: Product[] = safeParse(KEYS.PRODUCTS, []);
+    return products.find(p => p.id === id);
   },
-  saveProduct: async (product: Product) => {
-      await delay(300);
-      const products: Product[] = safeParse(KEYS.PRODUCTS, []);
-      const index = products.findIndex(p => p.id === product.id);
-      if (index >= 0) products[index] = product;
-      else products.push(product);
-      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
-  },
-  deleteProduct: async (id: string) => {
-      await delay(300);
-      let products: Product[] = safeParse(KEYS.PRODUCTS, []);
-      products = products.filter(p => p.id !== id);
-      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+  
+  getProductCategories: async () => {
+    await delay(200);
+    return safeParse(KEYS.PRODUCT_CATEGORIES, []);
   },
 
-  // Product Categories
-  getProductCategories: async () => {
-      await delay(100);
-      return safeParse(KEYS.PRODUCT_CATEGORIES, []);
+  saveProduct: async (product: Product) => {
+    await delay(400);
+    const products: Product[] = safeParse(KEYS.PRODUCTS, []);
+    const index = products.findIndex(p => p.id === product.id);
+    if (index >= 0) {
+      products[index] = product;
+    } else {
+      products.push(product);
+    }
+    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
   },
+
+  deleteProduct: async (id: string) => {
+    await delay(300);
+    let products: Product[] = safeParse(KEYS.PRODUCTS, []);
+    products = products.filter(p => p.id !== id);
+    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
+  },
+  
   saveProductCategory: async (category: ProductCategory) => {
-      await delay(300);
-      const categories: ProductCategory[] = safeParse(KEYS.PRODUCT_CATEGORIES, []);
-      const index = categories.findIndex(c => c.id === category.id);
-      if (index >= 0) categories[index] = category;
-      else categories.push(category);
-      localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(categories));
+    await delay(300);
+    const categories: ProductCategory[] = safeParse(KEYS.PRODUCT_CATEGORIES, []);
+    const index = categories.findIndex(c => c.id === category.id);
+    if (index >= 0) {
+      categories[index] = category;
+    } else {
+      categories.push(category);
+    }
+    localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(categories));
   },
+
   deleteProductCategory: async (id: string) => {
-      await delay(300);
-      let categories: ProductCategory[] = safeParse(KEYS.PRODUCT_CATEGORIES, []);
-      categories = categories.filter(c => c.id !== id);
-      localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(categories));
+    await delay(300);
+    let categories: ProductCategory[] = safeParse(KEYS.PRODUCT_CATEGORIES, []);
+    categories = categories.filter(c => c.id !== id);
+    localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(categories));
   },
 
   // Project Requests
-  saveProjectRequest: async (request: ProjectRequest) => {
-      await delay(500);
+  saveProjectRequest: async (request: any): Promise<ProjectRequest | null> => {
+    await delay(500);
+    try {
       const requests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
-      // If it has no ID, it's new
-      if (!request.id) {
-          request.id = generateUUID();
-          request.date = new Date().toISOString();
-          request.status = 'new';
-          requests.unshift(request); // Add to top
-          
-          // Notify Admin
-          const msg = `Nouveau Projet: "${request.title}" par ${request.clientName} (${request.clientPhone}).`;
-          await notifyAdmin('DEMANDE DE DEVIS', msg);
-      } else {
-          // Update existing
-          const index = requests.findIndex(r => r.id === request.id);
-          if (index >= 0) requests[index] = request;
+      
+      // Generate unique reference ID
+      const year = new Date().getFullYear();
+      const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
+      const reference = `PROJ-${year}-${randomSuffix}`;
+
+      const newRequest: ProjectRequest = {
+        ...request,
+        id: generateUUID(),
+        reference: reference,
+        status: 'new',
+        date: new Date().toISOString(),
+        images: request.images || []
+      };
+      
+      // OPTIONAL: Save images to Media Library for Admin visibility outside the project card
+      if (newRequest.images && newRequest.images.length > 0) {
+          const medias: MediaItem[] = safeParse(KEYS.MEDIA, []);
+          const timestamp = Date.now();
+          newRequest.images.forEach((imgBase64, idx) => {
+              if (imgBase64.startsWith('data:')) {
+                  medias.unshift({
+                      id: `PROJ_IMG_${timestamp}_${idx}`,
+                      type: 'image',
+                      name: `PROJET_${newRequest.clientName.replace(/\s+/g,'_')}_${idx+1}`,
+                      data: imgBase64,
+                      date: new Date().toISOString(),
+                      relatedId: newRequest.id
+                  });
+              }
+          });
+          // Limit storage
+          if (medias.length > 50) medias.pop();
+          localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
       }
+
+      requests.unshift(newRequest);
       localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify(requests));
-      return true;
-  },
-  
-  getProjectRequests: async () => {
-      await delay(300);
-      return safeParse(KEYS.PROJECT_REQUESTS, []);
+      
+      await notifyAdmin('NOUVEAU PROJET', `Demande de devis (${reference}) de ${newRequest.clientName} (${newRequest.clientPhone}). Titre: ${newRequest.title}`);
+      
+      return newRequest;
+    } catch (e) {
+      return null;
+    }
   },
 
-  updateProjectRequestStatus: async (id: string, status: 'new' | 'contacted' | 'completed' | 'cancelled') => {
-      await delay(300);
-      const requests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
-      const index = requests.findIndex(r => r.id === id);
-      if (index >= 0) {
-          requests[index].status = status;
-          localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify(requests));
-      }
+  getProjectRequests: async () => {
+    await delay(300);
+    return safeParse(KEYS.PROJECT_REQUESTS, []);
+  },
+
+  updateProjectRequestStatus: async (id: string, status: any) => {
+    await delay(300);
+    const requests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
+    const index = requests.findIndex(r => r.id === id);
+    if (index >= 0) {
+      requests[index].status = status;
+      localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify(requests));
+    }
   },
 
   // MEDIA LIBRARY
   saveMedia: async (media: MediaItem) => {
-      await delay(200);
+      await delay(300);
       const medias: MediaItem[] = safeParse(KEYS.MEDIA, []);
       medias.unshift(media);
-      try {
-        localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
-        return true;
-      } catch (e) {
-          console.error("LocalStorage Limit Reached", e);
-          return false;
-      }
+      // Limit storage for demo
+      if (medias.length > 50) medias.pop();
+      localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
   },
-  
+
   getMedia: async () => {
       await delay(200);
       return safeParse(KEYS.MEDIA, []);
@@ -653,5 +723,66 @@ export const db = {
       let medias: MediaItem[] = safeParse(KEYS.MEDIA, []);
       medias = medias.filter(m => m.id !== id);
       localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
+  },
+
+  // QUOTES
+  saveQuote: async (quote: Quote) => {
+    await delay(400);
+    const quotes: Quote[] = safeParse(KEYS.QUOTES, []);
+    const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
+    
+    const index = quotes.findIndex(q => q.id === quote.id);
+    
+    // Update Quotes List
+    if (index >= 0) {
+      quotes[index] = quote;
+    } else {
+      quotes.unshift(quote);
+    }
+    localStorage.setItem(KEYS.QUOTES, JSON.stringify(quotes));
+
+    // Handle Transaction Logic for Statistics
+    const txId = `QUOTE_${quote.id}`;
+    const txIndex = transactions.findIndex(t => t.id === txId);
+
+    if (quote.status === 'accepted') {
+        const txData: Transaction = {
+            id: txId,
+            amount: quote.totalAmount,
+            date: new Date().toISOString(),
+            status: 'success',
+            method: 'Espèces', // Assume cash/offline payment for quotes
+            userId: 'admin',
+            clientPhone: quote.clientPhone || 'N/A'
+        };
+
+        if (txIndex >= 0) {
+            // Update existing transaction in case amount changed
+            transactions[txIndex] = { ...transactions[txIndex], amount: quote.totalAmount, clientPhone: quote.clientPhone || 'N/A' };
+        } else {
+            // Create new
+            transactions.unshift(txData);
+        }
+        localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    } else {
+        // If status is NOT accepted (e.g. moved back to draft), remove the transaction if it exists
+        // to keep stats accurate.
+        if (txIndex >= 0) {
+            transactions.splice(txIndex, 1);
+            localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+        }
+    }
+  },
+
+  getQuotes: async () => {
+    await delay(300);
+    return safeParse(KEYS.QUOTES, []);
+  },
+
+  deleteQuote: async (id: string) => {
+    await delay(300);
+    let quotes: Quote[] = safeParse(KEYS.QUOTES, []);
+    quotes = quotes.filter(q => q.id !== id);
+    localStorage.setItem(KEYS.QUOTES, JSON.stringify(quotes));
   }
 };

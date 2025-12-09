@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Phone, Star, MapPin, BadgeCheck, MessageCircle } from 'lucide-react';
@@ -92,6 +91,9 @@ const WorkerDetails = () => {
   const getSpecialtyName = (id: string) => specialties.find(s => s.id === id)?.name;
   const getNeighborhoodName = (id: string) => neighborhoods.find(n => n.id === id)?.name;
 
+  // Helper to clean phone number for WhatsApp
+  const cleanPhone = (phone: string) => phone.replace(/\D/g, '');
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-xl overflow-hidden">
@@ -163,7 +165,7 @@ const WorkerDetails = () => {
           {/* Action Buttons */}
           <div className="mt-8 grid grid-cols-1 md:grid-cols-2 gap-4">
              <a 
-               href={`https://wa.me/${worker.whatsapp}`} 
+               href={`https://wa.me/${cleanPhone(worker.whatsapp)}`} 
                target="_blank" 
                rel="noreferrer"
                className="flex items-center justify-center bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-bold transition-colors shadow-sm"

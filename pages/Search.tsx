@@ -1,10 +1,9 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, NavigateFunction } from 'react-router-dom';
 import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock } from 'lucide-react';
 import { db } from '../services/db';
-import { Worker, Specialty, Neighborhood } from '../types';
+import { Worker, Specialty, Country, City, Neighborhood } from '../types';
 
 interface WorkerCardProps {
   worker: Worker;
@@ -12,13 +11,14 @@ interface WorkerCardProps {
   hasPaid: boolean;
   navigate: NavigateFunction;
   specialties: Specialty[];
-  neighborhoods: Neighborhood[];
+  cities: City[];
+  countries: Country[];
 }
 
-const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPaid, navigate, specialties, neighborhoods }) => {
+const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPaid, navigate, specialties, cities, countries }) => {
   const specialtyName = specialties.find(s => s.id === worker.specialtyId)?.name;
-  const neighborhoodName = neighborhoods.find(n => n.id === worker.neighborhoodId)?.name;
-
+  const cityName = cities.find(c => c.id === worker.cityId)?.name || 'Niamey';
+  
   // Masquer le nom si pas payé
   const displayName = hasPaid 
     ? `${worker.firstName} ${worker.lastName}` 
@@ -70,12 +70,12 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
 
         <div className="mt-3 flex items-center text-gray-500 dark:text-gray-400 text-sm">
           <MapPin className="w-4 h-4 mr-1" />
-          {neighborhoodName}
+          {cityName}
         </div>
         
         {isNearby && (
             <div className="mt-2 text-xs font-semibold text-orange-600 flex items-center">
-                <Map className="w-3 h-3 mr-1"/> Quartier proche
+                <Map className="w-3 h-3 mr-1"/> Suggestion (Autre Spécialité proche)
             </div>
         )}
 
@@ -113,14 +113,17 @@ const Search = () => {
   
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [countries, setCountries] = useState<Country[]>([]);
+  const [cities, setCities] = useState<City[]>([]);
+  
   const [hasPaid, setHasPaid] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [consultationPrice, setConsultationPrice] = useState(100);
+  const [consultationPrice, setConsultationPrice] = useState(200);
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // Filters
+  // Filters from URL
   const specialtyFilter = searchParams.get('specialty') || '';
-  const locationFilter = searchParams.get('location') || '';
+  const neighborhoodFilter = searchParams.get('neighborhood') || '';
 
   const shuffleArray = (array: Worker[]) => {
       const newArr = [...array];
@@ -131,54 +134,62 @@ const Search = () => {
       return newArr;
   };
 
+  // Load initial static data
   useEffect(() => {
-    const loadData = async () => {
-      setLoading(true);
-      const [allWorkers, specs, hoods, settings] = await Promise.all([
-        db.getWorkers(),
-        db.getSpecialties(),
-        db.getNeighborhoods(),
-        db.getSettings()
-      ]);
+    const init = async () => {
+        const [specs, cntrs, hoods] = await Promise.all([
+          db.getSpecialties(), 
+          db.getCountries(),
+          db.getNeighborhoods()
+        ]);
+        setSpecialties(specs);
+        setCountries(cntrs);
+        setNeighborhoods(hoods);
+        const settings = await db.getSettings();
+        setConsultationPrice(settings.consultationPrice);
+        db.getCities().then(setCities);
+    };
+    init();
+  }, []);
 
-      setSpecialties(specs);
-      setNeighborhoods(hoods);
-      setConsultationPrice(settings.consultationPrice);
+  // Main search logic
+  useEffect(() => {
+    const loadWorkers = async () => {
+      setLoading(true);
+      const allWorkers = await db.getWorkers();
       
       // Basic Filter: Active account status
       let baseList = allWorkers.filter(w => w.accountStatus === 'active');
       
-      // Exact Matches
+      // Filter by neighborhood if selected
+      if (neighborhoodFilter) {
+          baseList = baseList.filter(w => w.neighborhoodId === neighborhoodFilter);
+      }
+
+      // Exact Matches (Specialty)
       let exactMatches = [...baseList];
+      
       if (specialtyFilter) {
         exactMatches = exactMatches.filter(w => w.specialtyId === specialtyFilter);
       }
-      if (locationFilter) {
-        exactMatches = exactMatches.filter(w => w.neighborhoodId === locationFilter);
-      }
       
-      // Shuffle exact matches to rotate artisans for the user
+      // Shuffle exact matches
       const shuffledMatches = shuffleArray(exactMatches);
-      
-      // STRICT REQUIREMENT: Show exactly 3 recommended workers (or fewer if not enough exist)
-      setWorkers(shuffledMatches.slice(0, 3));
+      setWorkers(shuffledMatches.slice(0, 5)); // Show up to 5 main results
 
-      // Nearby Suggestions (Logic: Same Specialty, Different Location)
-      // Only show if we found fewer than 3 exact matches
+      // Suggestions (Same neighborhood but different specialty, OR same specialty different hood if result low)
       let nearby: Worker[] = [];
-      if (specialtyFilter && (shuffledMatches.length < 3)) {
-         nearby = baseList.filter(w => 
-             w.specialtyId === specialtyFilter && 
-             (!locationFilter || w.neighborhoodId !== locationFilter)
-         );
-         // Shuffle nearby as well and fill the remaining slots to reach roughly 3 total suggestions if possible
+      if (specialtyFilter && shuffledMatches.length < 3) {
+         // Fallback: If filtered by neighborhood, show other workers in that neighborhood
+         // If no neighborhood filter, show other workers in same specialty (which we already have in exactMatches)
+         nearby = baseList.filter(w => w.specialtyId !== specialtyFilter);
          const needed = 3 - shuffledMatches.length;
          setNearbyWorkers(shuffleArray(nearby).slice(0, Math.max(needed, 3)));
       } else {
           setNearbyWorkers([]);
       }
       
-      // Initial status check
+      // Paid status check
       const paid = db.hasPaid();
       setHasPaid(paid);
       if (paid) {
@@ -186,8 +197,8 @@ const Search = () => {
       }
       setLoading(false);
     };
-    loadData();
-  }, [specialtyFilter, locationFilter]);
+    loadWorkers();
+  }, [specialtyFilter, neighborhoodFilter]);
 
   // Timer Effect
   useEffect(() => {
@@ -226,26 +237,35 @@ const Search = () => {
       
       {/* Filters Bar */}
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center">
-        <select
-          value={specialtyFilter}
-          onChange={(e) => handleFilterChange('specialty', e.target.value)}
-          className="block w-full md:w-1/3 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2"
-        >
-          <option value="">Toutes les spécialités</option>
-          {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
-        </select>
+        
+        {/* Specialty Filter */}
+        <div className="w-full md:w-1/3 relative">
+            <select
+                value={specialtyFilter}
+                onChange={(e) => handleFilterChange('specialty', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 pl-8"
+            >
+                <option value="">Toutes les spécialités</option>
+                {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
+            </select>
+             <Star className="w-4 h-4 absolute left-2.5 top-3 text-gray-500"/>
+        </div>
 
-        <select
-          value={locationFilter}
-          onChange={(e) => handleFilterChange('location', e.target.value)}
-          className="block w-full md:w-1/3 rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2"
-        >
-          <option value="">Tous les quartiers</option>
-          {neighborhoods.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
-        </select>
+        {/* Neighborhood Filter */}
+        <div className="w-full md:w-1/3 relative">
+            <select
+                value={neighborhoodFilter}
+                onChange={(e) => handleFilterChange('neighborhood', e.target.value)}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 pl-8"
+            >
+                <option value="">Tous les quartiers (Niamey)</option>
+                {neighborhoods.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
+            </select>
+             <MapPin className="w-4 h-4 absolute left-2.5 top-3 text-gray-500"/>
+        </div>
 
-        <div className="text-sm text-gray-500 dark:text-gray-400 ml-auto flex items-center">
-          {workers.length} recommandation(s)
+        <div className="text-sm text-gray-500 dark:text-gray-400 ml-auto flex items-center whitespace-nowrap">
+          {workers.length} expert(s) trouvé(s)
         </div>
       </div>
 
@@ -277,7 +297,7 @@ const Search = () => {
       {workers.length > 0 && (
           <div className="mb-12">
             <div className="flex items-center mb-4">
-                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Nos Recommandations</h2>
+                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Résultats</h2>
                  <span className="ml-2 bg-brand-100 text-brand-800 text-xs px-2 py-1 rounded-full">{workers.length}</span>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -288,7 +308,8 @@ const Search = () => {
                     hasPaid={hasPaid} 
                     navigate={navigate} 
                     specialties={specialties} 
-                    neighborhoods={neighborhoods}
+                    cities={cities}
+                    countries={countries}
                   />
                 ))}
             </div>
@@ -298,8 +319,8 @@ const Search = () => {
       {/* No Exact Matches Message */}
       {workers.length === 0 && !loading && (
          <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg mb-8">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">Aucun ouvrier trouvé exactement dans ce quartier.</p>
-            {nearbyWorkers.length > 0 && <p className="text-brand-600 mt-2 font-medium">Voici des suggestions dans les quartiers voisins :</p>}
+            <p className="text-gray-500 dark:text-gray-400 text-lg">Aucun ouvrier trouvé pour ces critères.</p>
+            {nearbyWorkers.length > 0 && <p className="text-brand-600 mt-2 font-medium">Voici d'autres professionnels disponibles :</p>}
          </div>
       )}
       
@@ -309,7 +330,7 @@ const Search = () => {
             <div className="flex items-center mb-4">
                 <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
                     <RotateCw className="w-5 h-5 mr-2 text-orange-500" />
-                    Suggestions à proximité
+                    Autres professionnels (Suggestions)
                 </h2>
                 <span className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">{nearbyWorkers.length}</span>
             </div>
@@ -322,7 +343,8 @@ const Search = () => {
                     hasPaid={hasPaid} 
                     navigate={navigate} 
                     specialties={specialties} 
-                    neighborhoods={neighborhoods} 
+                    cities={cities}
+                    countries={countries}
                   />
                 ))}
             </div>
