@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import Home from './pages/Home';
@@ -42,7 +42,7 @@ const Layout = () => {
 
 const App = () => {
   return (
-    <MemoryRouter>
+    <BrowserRouter>
       <Routes>
         {/* Client Routes */}
         <Route path="/" element={<Layout />}>
@@ -75,7 +75,7 @@ const App = () => {
           <Route path="settings" element={<AdminSettings />} />
         </Route>
       </Routes>
-    </MemoryRouter>
+    </BrowserRouter>
   );
 };
 
