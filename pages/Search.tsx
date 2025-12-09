@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, NavigateFunction } from 'react-router-dom';
 import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock } from 'lucide-react';
@@ -114,7 +115,7 @@ const Search = () => {
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
   const [hasPaid, setHasPaid] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [consultationPrice, setConsultationPrice] = useState(200);
+  const [consultationPrice, setConsultationPrice] = useState(100);
   const [timeLeft, setTimeLeft] = useState(0);
 
   // Filters

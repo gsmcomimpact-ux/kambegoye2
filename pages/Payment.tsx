@@ -1,15 +1,14 @@
 
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Lock, Smartphone, ChevronRight, AlertCircle, Copy } from 'lucide-react';
+import { Lock, Smartphone, AlertCircle, ExternalLink } from 'lucide-react';
 import { db } from '../services/db';
-import { MERCHANT_NUMBERS } from '../constants';
 
 const Payment = () => {
   const navigate = useNavigate();
-  const [amount, setAmount] = useState(200);
+  const [amount, setAmount] = useState(100);
   const [phone, setPhone] = useState('');
-  const [method, setMethod] = useState<'Mynita' | 'Amanata'>('Mynita');
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
@@ -22,29 +21,18 @@ const Payment = () => {
     setLoading(true);
 
     try {
-        // Calls the DB service which handles API call or falls back to Simulation
-        const result = await db.initiateTransaction(method, phone);
+        // Logique de paiement externe via lien direct
+        const paymentUrl = 'https://i-pay.money/external_payments/85a858866600/preview';
         
-        if (result.success && result.paymentUrl) {
-            // Check if it is an internal simulation URL or external API URL
-            if (result.paymentUrl.startsWith('/')) {
-                navigate(result.paymentUrl);
-            } else {
-                window.location.href = result.paymentUrl;
-            }
-        } else {
-            alert('Erreur lors de l\'initialisation du paiement');
-            setLoading(false);
-        }
+        // Ouverture dans un nouvel onglet
+        window.open(paymentUrl, '_blank');
+        
+        setLoading(false);
     } catch (error) {
         console.error(error);
         alert("Une erreur inattendue est survenue.");
         setLoading(false);
     }
-  };
-
-  const getMerchantNumber = () => {
-    return method === 'Mynita' ? MERCHANT_NUMBERS.MYNITA : MERCHANT_NUMBERS.AMANATA;
   };
 
   return (
@@ -64,50 +52,10 @@ const Payment = () => {
 
         <form className="mt-8 space-y-6" onSubmit={handleSubmit}>
           
-          <div>
-             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                 Choisir l'opérateur
-             </label>
-             <div className="grid grid-cols-2 gap-4">
-                 <div 
-                    onClick={() => setMethod('Mynita')}
-                    className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center transition-all ${
-                        method === 'Mynita' 
-                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-2 ring-brand-500' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-brand-300'
-                    }`}
-                 >
-                     <div className="h-8 w-8 bg-orange-500 rounded-full mb-2 flex items-center justify-center text-white font-bold text-xs">M</div>
-                     <span className="font-semibold text-gray-900 dark:text-white">Mynita</span>
-                 </div>
-                 <div 
-                    onClick={() => setMethod('Amanata')}
-                    className={`cursor-pointer border rounded-lg p-4 flex flex-col items-center justify-center transition-all ${
-                        method === 'Amanata' 
-                        ? 'border-brand-500 bg-brand-50 dark:bg-brand-900/20 ring-2 ring-brand-500' 
-                        : 'border-gray-200 dark:border-gray-700 hover:border-brand-300'
-                    }`}
-                 >
-                     <div className="h-8 w-8 bg-blue-500 rounded-full mb-2 flex items-center justify-center text-white font-bold text-xs">A</div>
-                     <span className="font-semibold text-gray-900 dark:text-white">Amanata</span>
-                 </div>
-             </div>
-          </div>
-
-          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-lg text-center border border-gray-200 dark:border-gray-600">
-             <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">Numéro Marchand {method}</p>
-             <div className="flex items-center justify-center gap-2">
-                 <span className="text-xl font-mono font-bold text-gray-800 dark:text-white tracking-wider">
-                     {getMerchantNumber()}
-                 </span>
-             </div>
-             <p className="text-xs text-gray-400 mt-2">Le paiement sera initié vers ce numéro.</p>
-          </div>
-
           <div className="rounded-md shadow-sm -space-y-px">
             <div>
                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                   Votre Numéro (Pour valider le paiement)
+                   Votre Numéro (Pour le suivi)
                </label>
                <div className="relative rounded-md shadow-sm">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -128,7 +76,7 @@ const Payment = () => {
           <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md flex items-start">
              <AlertCircle className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" />
              <p className="text-sm text-blue-700 dark:text-blue-300">
-                Vous serez redirigé vers une page sécurisée pour valider la transaction.
+                Une nouvelle page sécurisée va s'ouvrir pour finaliser le paiement.
              </p>
           </div>
 
@@ -137,8 +85,8 @@ const Payment = () => {
             disabled={loading || !phone}
             className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50 transition-colors"
           >
-            {loading ? 'Initialisation...' : `Payer ${amount} FCFA`}
-            {!loading && <ChevronRight className="ml-2 w-5 h-5" />}
+            {loading ? 'Ouverture...' : `Payer ${amount} FCFA`}
+            {!loading && <ExternalLink className="ml-2 w-5 h-5" />}
           </button>
         </form>
         

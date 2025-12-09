@@ -1,4 +1,5 @@
 
+
 import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem } from '../types';
 import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG } from '../constants';
 
@@ -350,12 +351,12 @@ export const db = {
 
   getSettings: async () => {
     await delay(100);
-    return safeParse(KEYS.SETTINGS, { consultationPrice: 200 });
+    return safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
   },
 
   updateSettings: async (settings: Partial<SystemSettings>) => {
     await delay(300);
-    const current = safeParse(KEYS.SETTINGS, { consultationPrice: 200 });
+    const current = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
     const updated = { ...current, ...settings };
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(updated));
   },
@@ -375,7 +376,7 @@ export const db = {
 
   // Transactions
   initiateTransaction: async (method: string, phone: string) => {
-      const settings = safeParse(KEYS.SETTINGS, { consultationPrice: 200 });
+      const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
       return initiateIPayPayment(settings.consultationPrice, method, phone);
   },
 
@@ -389,7 +390,7 @@ export const db = {
           // Check if already recorded to avoid duplicates
           if (transactions.find(t => t.id === reference)) return true;
 
-          const settings = safeParse(KEYS.SETTINGS, { consultationPrice: 200 });
+          const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
           
           // RETRIEVE CONTEXT (Phone, Method)
           const contextStr = sessionStorage.getItem(`pending_tx_${reference}`);

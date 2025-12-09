@@ -1,7 +1,8 @@
 
+
 import { Specialty, Neighborhood, Worker, Product, ProductCategory } from './types';
 
-export const PAYMENT_AMOUNT = 200;
+export const PAYMENT_AMOUNT = 100;
 
 // CONFIGURATION DES NUMEROS MARCHANDS (POUR RECEPTION PAIEMENT)
 export const MERCHANT_NUMBERS = {

@@ -10,16 +10,10 @@ const PaymentCallback = () => {
   const [status, setStatus] = useState<'verifying' | 'success' | 'failed'>('verifying');
 
   useEffect(() => {
-    // iPayMoney typically returns the transaction_id or we use the one we generated
-    // The SDK documentation says it redirects to data-redirect-url
-    // We expect params like ?transaction_id=XYZ or ?status=successful
-    
     // We check for 'transaction_id' (standard) or 'ref' (our previous logic)
     const ref = searchParams.get('transaction_id') || searchParams.get('ref') || searchParams.get('reference');
     
     if (!ref) {
-        // Fallback: If no ref but status is 'success', we might accept it in this mock env
-        // but strictly we need a reference.
         console.warn("No reference found in callback");
     }
 
@@ -29,7 +23,8 @@ const PaymentCallback = () => {
              const success = await db.finalizeTransaction(ref);
              if (success) {
                 setStatus('success');
-                setTimeout(() => navigate('/search', { replace: true }), 3000);
+                // Redirect almost immediately to show workers
+                setTimeout(() => navigate('/search', { replace: true }), 1500);
                 return;
              }
         }
@@ -38,8 +33,8 @@ const PaymentCallback = () => {
         setStatus('failed');
     };
 
-    // Add small delay to ensure DB/API consistency
-    setTimeout(verify, 1000);
+    // Fast verification start
+    setTimeout(verify, 500);
   }, [searchParams, navigate]);
 
   return (
@@ -51,8 +46,8 @@ const PaymentCallback = () => {
                 <div className="mx-auto flex items-center justify-center h-16 w-16">
                     <Loader className="w-12 h-12 text-brand-600 animate-spin" />
                 </div>
-                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Vérification du paiement...</h2>
-                <p className="text-gray-500">Nous confirmons la transaction avec i-pay.money.</p>
+                <h2 className="text-xl font-bold text-gray-900 dark:text-white">Validation en cours...</h2>
+                <p className="text-gray-500">Veuillez patienter.</p>
             </div>
         )}
 
@@ -61,16 +56,10 @@ const PaymentCallback = () => {
                 <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100">
                     <CheckCircle className="w-10 h-10 text-green-600" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Paiement Validé !</h2>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Paiement Réussi !</h2>
                 <p className="text-gray-600 dark:text-gray-300">
-                    Merci. Vous avez maintenant accès aux contacts des ouvriers.
+                    Redirection vers les ouvriers...
                 </p>
-                <button 
-                    onClick={() => navigate('/search', { replace: true })}
-                    className="mt-4 w-full bg-brand-600 text-white py-2 rounded-md hover:bg-brand-700"
-                >
-                    Voir les ouvriers
-                </button>
             </div>
         )}
 
