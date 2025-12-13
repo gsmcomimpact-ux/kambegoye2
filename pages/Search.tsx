@@ -13,9 +13,10 @@ interface WorkerCardProps {
   specialties: Specialty[];
   cities: City[];
   countries: Country[];
+  onUnlock: () => void;
 }
 
-const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPaid, navigate, specialties, cities, countries }) => {
+const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPaid, navigate, specialties, cities, countries, onUnlock }) => {
   const specialtyName = specialties.find(s => s.id === worker.specialtyId)?.name;
   const cityName = cities.find(c => c.id === worker.cityId)?.name || 'Niamey';
   
@@ -90,7 +91,7 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
           ) : (
             <div className="relative group">
                <button 
-                onClick={() => navigate('/payment')}
+                onClick={onUnlock}
                 className="block w-full text-center bg-gray-900 text-white py-2 rounded-md cursor-pointer hover:bg-gray-800 transition-colors font-medium flex items-center justify-center shadow-sm"
               >
                 <Lock className="w-4 h-4 mr-2" />
@@ -226,6 +227,15 @@ const Search = () => {
     setSearchParams(newParams);
   };
   
+  const handleUnlockClick = () => {
+      // Save current search context so we can show relevant results after payment
+      sessionStorage.setItem('last_search_context', JSON.stringify({
+          specialty: specialtyFilter,
+          neighborhood: neighborhoodFilter
+      }));
+      navigate('/payment');
+  };
+  
   const formatTime = (seconds: number) => {
       const m = Math.floor(seconds / 60);
       const s = seconds % 60;
@@ -280,7 +290,7 @@ const Search = () => {
             </div>
           </div>
           <button 
-            onClick={() => navigate('/payment')}
+            onClick={handleUnlockClick}
             className="bg-white text-accent-600 px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition-colors whitespace-nowrap"
           >
             Payer {consultationPrice} F
@@ -310,6 +320,7 @@ const Search = () => {
                     specialties={specialties} 
                     cities={cities}
                     countries={countries}
+                    onUnlock={handleUnlockClick}
                   />
                 ))}
             </div>
@@ -345,6 +356,7 @@ const Search = () => {
                     specialties={specialties} 
                     cities={cities}
                     countries={countries}
+                    onUnlock={handleUnlockClick}
                   />
                 ))}
             </div>

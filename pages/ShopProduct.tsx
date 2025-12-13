@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, ShoppingBag, Truck, ShieldCheck, Check, Smartphone, Wallet } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Truck, ShieldCheck, Check } from 'lucide-react';
 import { db } from '../services/db';
 import { Product } from '../types';
 
@@ -9,8 +9,6 @@ const ShopProduct = () => {
   const navigate = useNavigate();
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
-  const [clientPhone, setClientPhone] = useState('');
-  const [paymentLoading, setPaymentLoading] = useState(false);
 
   useEffect(() => {
     db.getProductById(id || '').then(p => {
@@ -27,28 +25,9 @@ const ShopProduct = () => {
     // Clean phone number: +227 97 39 05 69 -> 22797390569
     const adminPhone = '22797390569';
     const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
+    
+    // Use window.open with fallback for mobile
     window.open(whatsappUrl, '_blank');
-  };
-
-  const handlePayment = async (method: 'Mynita' | 'Amanata') => {
-      if (!clientPhone) {
-          alert("Veuillez entrer votre numéro de téléphone pour le paiement.");
-          return;
-      }
-      setPaymentLoading(true);
-      try {
-          const result = await db.initiateTransaction(method, clientPhone, product.price);
-          if (result.success && result.paymentUrl) {
-              window.open(result.paymentUrl, '_blank');
-              // Optionally show a message or redirect to a tracking page
-          } else {
-              alert("Erreur lors de l'initialisation du paiement.");
-          }
-      } catch (e) {
-          alert("Erreur système");
-      } finally {
-          setPaymentLoading(false);
-      }
   };
 
   return (
@@ -93,58 +72,20 @@ const ShopProduct = () => {
              {product.description}
            </p>
 
-           {/* Commande & Paiement */}
+           {/* Commande */}
            <div className="space-y-4">
               {product.stock > 0 ? (
                 <>
-                    <div className="mb-4">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Votre numéro (Requis pour paiement)</label>
-                        <div className="relative rounded-md shadow-sm">
-                            <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                                <Smartphone className="h-5 w-5 text-gray-400" />
-                            </div>
-                            <input
-                                type="tel"
-                                value={clientPhone}
-                                onChange={(e) => setClientPhone(e.target.value)}
-                                className="focus:ring-brand-500 focus:border-brand-500 block w-full pl-10 sm:text-sm border-gray-300 rounded-md py-3 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                                placeholder="90 00 00 00"
-                            />
-                        </div>
-                    </div>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                        <button 
-                            onClick={() => handlePayment('Mynita')}
-                            disabled={paymentLoading}
-                            className="flex items-center justify-center bg-brand-600 hover:bg-brand-700 text-white py-3 rounded-lg font-bold shadow-md transition-all disabled:opacity-50"
-                        >
-                            <Wallet className="w-5 h-5 mr-2" />
-                            Payer par Mynita
-                        </button>
-                        <button 
-                            onClick={() => handlePayment('Amanata')}
-                            disabled={paymentLoading}
-                            className="flex items-center justify-center bg-red-600 hover:bg-red-700 text-white py-3 rounded-lg font-bold shadow-md transition-all disabled:opacity-50"
-                        >
-                            <Wallet className="w-5 h-5 mr-2" />
-                            Payer par Amanata
-                        </button>
-                    </div>
-
-                    <div className="relative flex py-2 items-center">
-                        <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-                        <span className="flex-shrink-0 mx-4 text-gray-400 text-xs">OU</span>
-                        <div className="flex-grow border-t border-gray-300 dark:border-gray-600"></div>
-                    </div>
-
                     <button 
                         onClick={handleWhatsAppOrder}
-                        className="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white py-3 rounded-lg font-bold shadow-md hover:shadow-lg transition-all"
+                        className="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white py-4 rounded-lg font-bold shadow-md hover:shadow-lg transition-all text-lg"
                     >
                         <MessageCircle className="w-6 h-6 mr-3" />
                         Commander sur WhatsApp
                     </button>
+                    <p className="text-center text-sm text-gray-500 mt-2">
+                        Vous serez redirigé vers WhatsApp pour finaliser la commande avec un agent.
+                    </p>
                 </>
               ) : (
                    <button 

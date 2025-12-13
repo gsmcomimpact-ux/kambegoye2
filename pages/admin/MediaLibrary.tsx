@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState, useRef } from 'react';
 import { Trash2, Download, FileText, Image as ImageIcon, Upload, Plus } from 'lucide-react';
-import { db } from '../../services/db';
+import { db, generateUUID } from '../../services/db';
 import { MediaItem } from '../../types';
 
 const MediaLibrary = () => {
@@ -48,7 +47,7 @@ const MediaLibrary = () => {
               const dataUrl = await db.fileToDataURL(file);
               const type = file.type.startsWith('image/') ? 'image' : 'document';
               await db.saveMedia({
-                  id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+                  id: generateUUID(),
                   type: type,
                   name: file.name,
                   data: dataUrl,
@@ -117,13 +116,6 @@ const MediaLibrary = () => {
               </div>
             </div>
           ))}
-          
-          {medias.length === 0 && (
-              <div className="col-span-full py-12 text-center text-gray-500">
-                  <ImageIcon className="w-12 h-12 mx-auto mb-3 opacity-20" />
-                  <p>Aucun document dans la médiathèque.</p>
-              </div>
-          )}
         </div>
       )}
     </div>

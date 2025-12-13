@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { Edit, Trash2, Plus, X } from 'lucide-react';
-import { db } from '../../services/db';
+import { db, generateUUID } from '../../services/db';
 import { ProductCategory } from '../../types';
 
 const ProductCategories = () => {
@@ -32,7 +31,7 @@ const ProductCategories = () => {
 
   const handleCreate = () => {
     setEditingCategory({
-      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      id: generateUUID(),
       name: ''
     });
     setIsModalOpen(true);
@@ -93,7 +92,6 @@ const ProductCategories = () => {
         </table>
       </div>
 
-      {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6">

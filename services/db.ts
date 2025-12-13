@@ -12,7 +12,7 @@ const KEYS = {
   PRODUCTS: 'kambegoye_products',
   PRODUCT_CATEGORIES: 'kambegoye_product_categories',
   PROJECT_REQUESTS: 'kambegoye_project_requests',
-  PAID_SESSION_TIMESTAMP: 'kambegoye_paid_session_ts', // Updated key for timestamp
+  PAID_SESSION_TIMESTAMP: 'kambegoye_paid_session_ts',
   SETTINGS: 'kambegoye_settings',
   ADMIN_AUTH: 'kambegoye_admin_auth',
   MEDIA: 'kambegoye_media',
@@ -26,17 +26,25 @@ const ADMIN_CONTACT = {
     email: 'contact@kambegoye.com'
 };
 
-// UUID Polyfill
-const generateUUID = () => {
-  try {
-    // @ts-ignore
-    if (typeof crypto !== 'undefined' && crypto.randomUUID) {
-      // @ts-ignore
-      return crypto.randomUUID();
-    }
-  } catch (e) {
-    // Ignore
+// --- DATA GENERATION HELPERS (Moved to top for initDB usage) ---
+const firstNames = ["Abdou", "Moussa", "Ibrahim", "Sani", "Omar", "Fatima", "Aicha", "Zeneba", "Halima", "Issaka", "Ousmane", "Amadou", "Souleymane", "Yacouba", "Bintou", "Mariama", "Hadiza", "Ramatou"];
+const lastNames = ["Diallo", "Maiga", "Seyni", "Oumarou", "Kimba", "Saley", "Adamou", "Maman", "Soumana", "Tiemogo", "Hassane", "Garba", "Idrissa", "Mahamadou", "Abdoulaye"];
+
+const randomElement = <T>(arr: T[]): T => arr[Math.floor(Math.random() * arr.length)];
+const randomNumber = (min: number, max: number) => Math.floor(Math.random() * (max - min + 1)) + min;
+
+// UUID Polyfill - Robust for HTTP contexts on XAMPP/iFastNet
+export const generateUUID = () => {
+  // Try native crypto first (works on HTTPS or localhost)
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+      try {
+          return crypto.randomUUID();
+      } catch (e) {
+          // Fallback
+      }
   }
+  
+  // Manual fallback for insecure contexts
   return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
     const r = Math.random() * 16 | 0;
     const v = c === 'x' ? r : (r & 0x3 | 0x8);
@@ -54,140 +62,136 @@ const safeParse = <T>(key: string, fallback: T): T => {
 };
 
 const initDB = () => {
-  if (!localStorage.getItem(KEYS.WORKERS)) {
-    localStorage.setItem(KEYS.WORKERS, JSON.stringify(INITIAL_WORKERS));
-  } else {
-    // Migration: Ensure all workers have accountStatus, views, and location
-    const workers = safeParse<Worker[]>(KEYS.WORKERS, []);
-    const updatedWorkers = workers.map(w => ({
-        ...w,
-        accountStatus: w.accountStatus || 'active',
-        views: w.views || 0,
-        countryId: w.countryId || 'NE', // Default to Niger for migration
-        cityId: w.cityId || 'NE_NIA'    // Default to Niamey for migration
-    }));
-    localStorage.setItem(KEYS.WORKERS, JSON.stringify(updatedWorkers));
-  }
-
-  // Specialties Merge
-  const storedSpecialties = safeParse<Specialty[]>(KEYS.SPECIALTIES, []);
-  if (storedSpecialties.length === 0) {
-    localStorage.setItem(KEYS.SPECIALTIES, JSON.stringify(INITIAL_SPECIALTIES));
-  } else {
-    const existingIds = new Set(storedSpecialties.map(s => s.id));
-    let hasChanges = false;
-    const updatedSpecialties = [...storedSpecialties];
-
-    INITIAL_SPECIALTIES.forEach(initSpec => {
-      if (!existingIds.has(initSpec.id)) {
-        updatedSpecialties.push(initSpec);
-        hasChanges = true;
+  try {
+    // 1. WORKERS INITIALIZATION (AUTO-SEEDING)
+    if (!localStorage.getItem(KEYS.WORKERS)) {
+      console.log("Premier lancement détecté : Génération de la base de données ouvriers...");
+      const workers: Worker[] = [...INITIAL_WORKERS]; // Start with static data
+      
+      // Generate 50 random workers immediately
+      for (let i = 0; i < 50; i++) {
+          const spec = randomElement(INITIAL_SPECIALTIES);
+          const hood = randomElement(INITIAL_NEIGHBORHOODS);
+          const firstName = randomElement(firstNames);
+          const lastName = randomElement(lastNames);
+          
+          workers.push({
+              id: generateUUID(),
+              firstName,
+              lastName,
+              specialtyId: spec.id,
+              countryId: 'NE',
+              cityId: 'NE_NIA',
+              neighborhoodId: hood.id,
+              phone: `9${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}`,
+              whatsapp: `2279${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}`,
+              photoUrl: `https://picsum.photos/seed/${i + 500}/200/200`,
+              availability: Math.random() > 0.3 ? 'available' : 'busy',
+              rating: parseFloat((Math.random() * (5 - 3.5) + 3.5).toFixed(1)),
+              reviewCount: randomNumber(1, 50),
+              isVerified: Math.random() > 0.5,
+              workImages: [],
+              latitude: hood.latitude + (Math.random() - 0.5) * 0.01,
+              longitude: hood.longitude + (Math.random() - 0.5) * 0.01,
+              accountStatus: 'active',
+              views: randomNumber(0, 200)
+          });
       }
-    });
-
-    if (hasChanges) {
-      localStorage.setItem(KEYS.SPECIALTIES, JSON.stringify(updatedSpecialties));
+      localStorage.setItem(KEYS.WORKERS, JSON.stringify(workers));
+    } else {
+      // Migration logic for existing data
+      const workers = safeParse<Worker[]>(KEYS.WORKERS, []);
+      const updatedWorkers = workers.map(w => ({
+          ...w,
+          accountStatus: w.accountStatus || 'active',
+          views: w.views || 0,
+          countryId: w.countryId || 'NE', 
+          cityId: w.cityId || 'NE_NIA'
+      }));
+      localStorage.setItem(KEYS.WORKERS, JSON.stringify(updatedWorkers));
     }
-  }
 
-  // Countries Init
-  if (!localStorage.getItem(KEYS.COUNTRIES)) {
-      localStorage.setItem(KEYS.COUNTRIES, JSON.stringify(INITIAL_COUNTRIES));
-  }
+    const storedSpecialties = safeParse<Specialty[]>(KEYS.SPECIALTIES, []);
+    if (storedSpecialties.length === 0) {
+      localStorage.setItem(KEYS.SPECIALTIES, JSON.stringify(INITIAL_SPECIALTIES));
+    }
 
-  // Cities Merge
-  const storedCities = safeParse<City[]>(KEYS.CITIES, []);
-  if (storedCities.length === 0) {
-      localStorage.setItem(KEYS.CITIES, JSON.stringify(INITIAL_CITIES));
-  } else {
-     // Merge new cities if not present
-     const existingIds = new Set(storedCities.map(c => c.id));
-     const citiesToUpdate = [...storedCities];
-     let cityAdded = false;
-     INITIAL_CITIES.forEach(c => {
-         if(!existingIds.has(c.id)){
-             citiesToUpdate.push(c);
-             cityAdded = true;
-         }
-     });
-     if(cityAdded) {
-         localStorage.setItem(KEYS.CITIES, JSON.stringify(citiesToUpdate));
-     }
-  }
+    if (!localStorage.getItem(KEYS.COUNTRIES)) {
+        localStorage.setItem(KEYS.COUNTRIES, JSON.stringify(INITIAL_COUNTRIES));
+    }
 
-  // Neighborhoods Merge
-  const storedHoods = safeParse<Neighborhood[]>(KEYS.NEIGHBORHOODS, []);
-  if (storedHoods.length === 0) {
-    localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(INITIAL_NEIGHBORHOODS));
-  } else {
-     // Migration: Ensure existing neighborhoods have cityId
-     const migratedHoods = storedHoods.map(n => ({
-         ...n,
-         cityId: n.cityId || 'NE_NIA' // Default to Niamey for legacy data
-     }));
-     localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(migratedHoods));
-  }
-  
-  // Products Init
-  if (!localStorage.getItem(KEYS.PRODUCTS)) {
-    localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
-  }
+    const storedCities = safeParse<City[]>(KEYS.CITIES, []);
+    if (storedCities.length === 0) {
+        localStorage.setItem(KEYS.CITIES, JSON.stringify(INITIAL_CITIES));
+    }
 
-  // Product Categories Init
-  const storedProdCats = safeParse<ProductCategory[]>(KEYS.PRODUCT_CATEGORIES, []);
-  if (storedProdCats.length === 0) {
-    localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(INITIAL_PRODUCT_CATEGORIES));
-  }
+    const storedHoods = safeParse<Neighborhood[]>(KEYS.NEIGHBORHOODS, []);
+    if (storedHoods.length === 0) {
+      localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(INITIAL_NEIGHBORHOODS));
+    }
+    
+    if (!localStorage.getItem(KEYS.PRODUCTS)) {
+      localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
+    }
 
-  if (!localStorage.getItem(KEYS.TRANSACTIONS)) {
-    localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify([]));
-  }
-  
-  if (!localStorage.getItem(KEYS.PROJECT_REQUESTS)) {
-    localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify([]));
-  }
+    const storedProdCats = safeParse<ProductCategory[]>(KEYS.PRODUCT_CATEGORIES, []);
+    if (storedProdCats.length === 0) {
+      localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(INITIAL_PRODUCT_CATEGORIES));
+    }
 
-  // Settings Init with Migration
-  const settings = safeParse(KEYS.SETTINGS, null);
-  if (!settings) {
-    localStorage.setItem(KEYS.SETTINGS, JSON.stringify({ consultationPrice: PAYMENT_AMOUNT }));
-  } else if (settings.consultationPrice === 100) {
-    // Migration: Update old default 100 to new default PAYMENT_AMOUNT (200)
-    settings.consultationPrice = PAYMENT_AMOUNT;
-    localStorage.setItem(KEYS.SETTINGS, JSON.stringify(settings));
-  }
+    // 2. TRANSACTIONS INITIALIZATION (AUTO-SEEDING)
+    if (!localStorage.getItem(KEYS.TRANSACTIONS)) {
+      console.log("Génération de l'historique des transactions...");
+      const transactions: Transaction[] = [];
+      // Generate 25 initial transactions
+      for (let i = 0; i < 25; i++) {
+          const date = new Date();
+          date.setDate(date.getDate() - randomNumber(0, 30)); // Past 30 days
+          transactions.push({
+              id: generateUUID(),
+              amount: Math.random() > 0.8 ? 15000 : 200, 
+              date: date.toISOString(),
+              status: 'success',
+              method: Math.random() > 0.5 ? 'Mynita' : 'Amanata',
+              userId: `user-${randomNumber(1000, 9999)}`,
+              clientPhone: `9${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}...`
+          });
+      }
+      localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+    }
+    
+    if (!localStorage.getItem(KEYS.PROJECT_REQUESTS)) {
+      localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify([]));
+    }
 
-  if (!localStorage.getItem(KEYS.ADMIN_AUTH)) {
-    localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify({ username: 'admin', password: 'admin' }));
-  }
-  
-  if (!localStorage.getItem(KEYS.MEDIA)) {
-      localStorage.setItem(KEYS.MEDIA, JSON.stringify([]));
-  }
+    const settings = safeParse(KEYS.SETTINGS, null);
+    if (!settings) {
+      localStorage.setItem(KEYS.SETTINGS, JSON.stringify({ consultationPrice: PAYMENT_AMOUNT }));
+    }
 
-  if (!localStorage.getItem(KEYS.QUOTES)) {
-    localStorage.setItem(KEYS.QUOTES, JSON.stringify([]));
+    if (!localStorage.getItem(KEYS.ADMIN_AUTH)) {
+      localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify({ username: 'admin', password: 'admin' }));
+    }
+    
+    if (!localStorage.getItem(KEYS.MEDIA)) {
+        localStorage.setItem(KEYS.MEDIA, JSON.stringify([]));
+    }
+
+    if (!localStorage.getItem(KEYS.QUOTES)) {
+      localStorage.setItem(KEYS.QUOTES, JSON.stringify([]));
+    }
+  } catch (error) {
+    console.error("Critical DB Init Error", error);
   }
 };
 
 const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-// --- NOTIFICATION SYSTEM (MOCK) ---
 const notifyAdmin = async (subject: string, message: string) => {
-    const whatsappUrl = `https://wa.me/${ADMIN_CONTACT.phone}?text=${encodeURIComponent(`[KAMBEGOYE] ${subject}: ${message}`)}`;
-    
-    console.group('🔔 [MOCK] ADMIN NOTIFICATION');
-    console.log(`TYPE: WhatsApp & Email`);
-    console.log(`TO: ${ADMIN_CONTACT.phone} / ${ADMIN_CONTACT.email}`);
-    console.log(`MESSAGE: ${message}`);
-    console.log(`WHATSAPP LINK (Simulation): ${whatsappUrl}`);
-    console.groupEnd();
-    
-    // Simulate API latency
+    console.log(`[KAMBEGOYE NOTIF] ${subject}: ${message}`);
     await delay(100);
 };
 
-// --- FILE HELPER ---
 const fileToDataURL = (file: File): Promise<string> => {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
@@ -200,31 +204,24 @@ const fileToDataURL = (file: File): Promise<string> => {
   });
 };
 
-// --- PAYMENT API INTEGRATION (REDIRECT FLOW) ---
-
 export interface PaymentInitiationResult {
   success: boolean;
-  paymentUrl: string; // The URL to redirect the user to
+  paymentUrl: string; 
   reference: string;
 }
 
-const initiateIPayPayment = async (amount: number, method: string, phone: string): Promise<PaymentInitiationResult> => {
+const initiateIPayPayment = async (amount: number, method: string, phone: string, details?: string): Promise<PaymentInitiationResult> => {
   const reference = generateUUID();
-  const baseUrl = window.location.origin; 
-  // const returnUrl = `${baseUrl}/payment/callback?ref=${reference}`;
-  // const cancelUrl = `${baseUrl}/payment?error=cancel`;
-
-  // SAVE CONTEXT: We store the phone number, method and AMOUNT temporarily
-  // Storing amount allows validation to check correct value later if needed
-  sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method, amount }));
-
-  // Use the static link provided by user
-  const iPayStaticLink = "https://i-pay.money/external_payments/2ae97b1832eb/preview";
   
-  // For demo, wrap in simulation page but functionality remains
-  const paymentUrl = `${baseUrl}/payment/simulation?amount=${amount}&method=${method}&phone=${phone}&ref=${reference}`;
-
-  console.log('--- INITIALISATION I-PAY (SIMULATION) ---', { amount, method, phone, reference });
+  // Stockage contextuel pour la validation (navigateur courant)
+  sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method, amount, details }));
+  
+  // Utilisation d'un lien de simulation interne
+  // AJOUT des détails dans l'URL pour que la page de simulation puisse les afficher
+  // même si ouverte dans un autre onglet/appareil
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const detailsParam = details ? `&details=${encodeURIComponent(details)}` : '';
+  const paymentUrl = `${origin}/payment/simulation?ref=${reference}&phone=${phone}&amount=${amount}&method=${method}${detailsParam}`;
 
   return {
       success: true,
@@ -237,36 +234,14 @@ const verifyIPayPayment = async (reference: string): Promise<'pending' | 'succes
     const simulatedStatus = sessionStorage.getItem(`sim_status_${reference}`);
     if (simulatedStatus === 'success') return 'success';
     if (simulatedStatus === 'failed') return 'failed';
-
-    try {
-        const verifyUrl = `https://i-pay.money/api/v1/payments/${reference}/status`; 
-        const response = await fetch(verifyUrl, {
-            method: 'GET',
-            headers: {
-                'Authorization': `Bearer ${IPAY_CONFIG.SECRET_KEY}`,
-                'Content-Type': 'application/json'
-            }
-        });
-        
-        if (response.ok) {
-            const data = await response.json();
-            const status = data.status?.toLowerCase();
-            if (status === 'successful' || status === 'completed' || status === 'paid') return 'success';
-            if (status === 'failed' || status === 'cancelled') return 'failed';
-        }
-    } catch (e) {
-    }
     return 'pending';
 };
 
-// ------------------------------
-
 export const db = {
   init: () => initDB(),
-
-  // EXPOSE HELPER
   fileToDataURL: (file: File) => fileToDataURL(file),
 
+  // ... (Existing methods) ...
   getWorkers: async () => {
     await delay(300);
     return safeParse(KEYS.WORKERS, []);
@@ -278,7 +253,6 @@ export const db = {
     return workers.find(w => w.id === id);
   },
 
-  // ANALYTICS
   incrementWorkerView: async (id: string) => {
       const workers: Worker[] = safeParse(KEYS.WORKERS, []);
       const index = workers.findIndex(w => w.id === id);
@@ -293,10 +267,9 @@ export const db = {
     const workers: Worker[] = safeParse(KEYS.WORKERS, []);
     const index = workers.findIndex(w => w.id === worker.id);
     if (!worker.accountStatus) worker.accountStatus = 'active';
-    if (!worker.views) worker.views = 0; // Ensure views is set
+    if (!worker.views) worker.views = 0;
     
     if (index >= 0) {
-        // Preserve views if editing
         const existingViews = workers[index].views || 0;
         worker.views = existingViews;
         workers[index] = worker;
@@ -323,11 +296,7 @@ export const db = {
         };
         workers.push(newWorker);
         localStorage.setItem(KEYS.WORKERS, JSON.stringify(workers));
-
-        // NOTIFY ADMIN
-        const msg = `Nouvelle inscription : ${newWorker.firstName} ${newWorker.lastName} (${newWorker.phone}). Spécialité ID: ${newWorker.specialtyId}.`;
-        await notifyAdmin('INSCRIPTION OUVRIER', msg);
-
+        await notifyAdmin('INSCRIPTION OUVRIER', `Nouveau: ${newWorker.firstName}`);
         return true;
     } catch (e) {
         return false;
@@ -394,69 +363,91 @@ export const db = {
     localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify(auth));
   },
 
-  // Transactions
-  initiateTransaction: async (method: string, phone: string, customAmount?: number) => {
+  initiateTransaction: async (method: string, phone: string, customAmount?: number, details?: string) => {
       const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
       const amount = customAmount || settings.consultationPrice;
-      return initiateIPayPayment(amount, method, phone);
+      return initiateIPayPayment(amount, method, phone, details);
   },
 
-  finalizeTransaction: async (reference: string) => {
-      // Check status
-      const status = await verifyIPayPayment(reference);
-      
-      if (status === 'success') {
-          // Record transaction
-          const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
-          // Check if already recorded to avoid duplicates
-          if (transactions.find(t => t.id === reference)) return true;
-
-          const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
-          
-          // RETRIEVE CONTEXT (Phone, Method, Amount)
-          const contextStr = sessionStorage.getItem(`pending_tx_${reference}`);
-          const context = contextStr ? JSON.parse(contextStr) : { phone: 'N/A', method: 'Mynita', amount: settings.consultationPrice };
-
-          const newTx: Transaction = {
-              id: reference,
-              amount: context.amount || settings.consultationPrice,
-              date: new Date().toISOString(),
-              status: 'success',
-              method: context.method,
-              userId: 'user-' + Date.now(),
-              clientPhone: context.phone // STORE CLIENT PHONE
-          };
-          transactions.unshift(newTx);
-          localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
-          
-          // Enable Session with TIMESTAMP (Expires in 5 mins)
-          // Only enable session if it was a consultation payment (standard amount)
-          if (newTx.amount === settings.consultationPrice) {
-             sessionStorage.setItem(KEYS.PAID_SESSION_TIMESTAMP, Date.now().toString());
-          }
-
-          // Notify Admin
-          await notifyAdmin('NOUVEAU PAIEMENT', `Paiement reçu de ${newTx.amount} FCFA via ${context.method}. Client: ${context.phone}. Ref: ${reference}`);
-          
-          // Cleanup context
-          sessionStorage.removeItem(`pending_tx_${reference}`);
-
-          return true;
+  addManualTransaction: async (amount: number, phone: string, method: string = 'Espèces', details?: string) => {
+      await delay(300);
+      const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
+      const newTx: Transaction = {
+          id: generateUUID(),
+          amount: amount,
+          date: new Date().toISOString(),
+          status: 'success',
+          method: method,
+          userId: 'admin',
+          clientPhone: phone,
+          details: details
+      };
+      transactions.unshift(newTx);
+      localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+      return newTx;
+  },
+  
+  updateProductStock: async (id: string, quantitySold: number) => {
+      await delay(100);
+      const products: Product[] = safeParse(KEYS.PRODUCTS, []);
+      const index = products.findIndex(p => p.id === id);
+      if (index >= 0) {
+          const currentStock = products[index].stock || 0;
+          products[index].stock = Math.max(0, currentStock - quantitySold);
+          localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(products));
       }
-      return false;
+  },
+
+  finalizeTransaction: async (reference: string, overrideData?: any) => {
+      const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
+      if (transactions.find(t => t.id === reference)) return true;
+
+      const settings = safeParse(KEYS.SETTINGS, { consultationPrice: PAYMENT_AMOUNT });
+      
+      const contextStr = sessionStorage.getItem(`pending_tx_${reference}`);
+      
+      // Si on a des données dans le sessionStorage (même navigateur), on les utilise
+      // Sinon on utilise les données passées en override (provenant de l'URL si lien externe)
+      let context = contextStr ? JSON.parse(contextStr) : null;
+      
+      if (!context && overrideData) {
+          context = overrideData;
+      }
+      
+      // Fallback par défaut
+      if (!context) {
+          context = { phone: 'N/A', method: 'Mynita', amount: settings.consultationPrice };
+      }
+
+      const newTx: Transaction = {
+          id: reference,
+          amount: context.amount || settings.consultationPrice,
+          date: new Date().toISOString(),
+          status: 'success',
+          method: context.method,
+          userId: 'user-' + Date.now(),
+          clientPhone: context.phone,
+          details: context.details // On récupère les détails (produits) si présents
+      };
+      transactions.unshift(newTx);
+      localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+      
+      // Activer la session payante
+      if (newTx.amount === settings.consultationPrice) {
+         sessionStorage.setItem(KEYS.PAID_SESSION_TIMESTAMP, Date.now().toString());
+      }
+
+      sessionStorage.removeItem(`pending_tx_${reference}`);
+      return true;
   },
 
   forceValidatePayment: async (phone: string, method?: string) => {
       const reference = generateUUID();
-      // Force simulation success status
       sessionStorage.setItem(`sim_status_${reference}`, 'success');
-      // Store Mynita as default or passed method if expanded in future
       sessionStorage.setItem(`pending_tx_${reference}`, JSON.stringify({ phone, method: method || 'Mynita' }));
-      
       return await db.finalizeTransaction(reference);
   },
 
-  // CHECK ACCESS STATUS WITH 5 MINUTE TIMEOUT
   hasPaid: () => {
       const sessionStartStr = sessionStorage.getItem(KEYS.PAID_SESSION_TIMESTAMP);
       if (!sessionStartStr) return false;
@@ -464,9 +455,7 @@ export const db = {
       const sessionStart = parseInt(sessionStartStr, 10);
       const now = Date.now();
 
-      // Check if session has expired
       if (now - sessionStart > SESSION_DURATION_MS) {
-          // Session expired
           sessionStorage.removeItem(KEYS.PAID_SESSION_TIMESTAMP);
           return false;
       }
@@ -474,7 +463,6 @@ export const db = {
       return true;
   },
   
-  // Helper to get remaining time in seconds
   getSessionTimeRemaining: () => {
       const sessionStartStr = sessionStorage.getItem(KEYS.PAID_SESSION_TIMESTAMP);
       if (!sessionStartStr) return 0;
@@ -493,7 +481,6 @@ export const db = {
     const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
     const projectRequests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
     
-    // Revenue calculations
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
     const oneWeekAgo = today - (7 * 24 * 60 * 60 * 1000);
@@ -513,7 +500,6 @@ export const db = {
 
     const totalRevenue = transactions.reduce((sum, t) => sum + t.amount, 0);
 
-    // Payment Methods Breakdown
     const methodCounts = transactions.reduce((acc, t) => {
         acc[t.method] = (acc[t.method] || 0) + 1;
         return acc;
@@ -524,7 +510,6 @@ export const db = {
         value: methodCounts[key]
     }));
 
-    // Top Workers (Most Viewed)
     const topWorkers = [...workers]
         .sort((a, b) => (b.views || 0) - (a.views || 0))
         .slice(0, 5);
@@ -582,7 +567,46 @@ export const db = {
       initDB();
   },
 
-  // Products
+  // === FUNCTION TO GENERATE MOCK DATA (SEED) - Can also be called manually ===
+  seedDatabase: async () => {
+      await delay(1000);
+      
+      let workers: Worker[] = safeParse(KEYS.WORKERS, []);
+      
+      // Generate 20 more workers when called manually
+      for (let i = 0; i < 20; i++) {
+          const spec = randomElement(INITIAL_SPECIALTIES);
+          const hood = randomElement(INITIAL_NEIGHBORHOODS);
+          const firstName = randomElement(firstNames);
+          const lastName = randomElement(lastNames);
+          
+          workers.push({
+              id: generateUUID(),
+              firstName,
+              lastName,
+              specialtyId: spec.id,
+              countryId: 'NE',
+              cityId: 'NE_NIA',
+              neighborhoodId: hood.id,
+              phone: `9${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}`,
+              whatsapp: `2279${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}${randomNumber(0, 9)}`,
+              photoUrl: `https://picsum.photos/seed/${Date.now() + i}/200/200`,
+              availability: Math.random() > 0.3 ? 'available' : 'busy',
+              rating: parseFloat((Math.random() * (5 - 3.5) + 3.5).toFixed(1)),
+              reviewCount: randomNumber(1, 50),
+              isVerified: Math.random() > 0.5,
+              workImages: [],
+              latitude: hood.latitude + (Math.random() - 0.5) * 0.01,
+              longitude: hood.longitude + (Math.random() - 0.5) * 0.01,
+              accountStatus: 'active',
+              views: randomNumber(0, 200)
+          });
+      }
+      localStorage.setItem(KEYS.WORKERS, JSON.stringify(workers));
+
+      return true;
+  },
+
   getProducts: async () => {
       await delay(200);
       return safeParse(KEYS.PRODUCTS, []);
@@ -636,13 +660,11 @@ export const db = {
     localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(categories));
   },
 
-  // Project Requests
   saveProjectRequest: async (request: any): Promise<ProjectRequest | null> => {
     await delay(500);
     try {
       const requests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
       
-      // Generate unique reference ID
       const year = new Date().getFullYear();
       const randomSuffix = Math.floor(Math.random() * 10000).toString().padStart(4, '0');
       const reference = `PROJ-${year}-${randomSuffix}`;
@@ -656,7 +678,6 @@ export const db = {
         images: request.images || []
       };
       
-      // OPTIONAL: Save images to Media Library for Admin visibility outside the project card
       if (newRequest.images && newRequest.images.length > 0) {
           const medias: MediaItem[] = safeParse(KEYS.MEDIA, []);
           const timestamp = Date.now();
@@ -672,7 +693,6 @@ export const db = {
                   });
               }
           });
-          // Limit storage
           if (medias.length > 50) medias.pop();
           localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
       }
@@ -680,7 +700,7 @@ export const db = {
       requests.unshift(newRequest);
       localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify(requests));
       
-      await notifyAdmin('NOUVEAU PROJET', `Demande de devis (${reference}) de ${newRequest.clientName} (${newRequest.clientPhone}). Titre: ${newRequest.title}`);
+      await notifyAdmin('NOUVEAU PROJET', `Demande: ${reference} - ${newRequest.clientName}`);
       
       return newRequest;
     } catch (e) {
@@ -703,12 +723,10 @@ export const db = {
     }
   },
 
-  // MEDIA LIBRARY
   saveMedia: async (media: MediaItem) => {
       await delay(300);
       const medias: MediaItem[] = safeParse(KEYS.MEDIA, []);
       medias.unshift(media);
-      // Limit storage for demo
       if (medias.length > 50) medias.pop();
       localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
   },
@@ -725,7 +743,6 @@ export const db = {
       localStorage.setItem(KEYS.MEDIA, JSON.stringify(medias));
   },
 
-  // QUOTES
   saveQuote: async (quote: Quote) => {
     await delay(400);
     const quotes: Quote[] = safeParse(KEYS.QUOTES, []);
@@ -733,7 +750,6 @@ export const db = {
     
     const index = quotes.findIndex(q => q.id === quote.id);
     
-    // Update Quotes List
     if (index >= 0) {
       quotes[index] = quote;
     } else {
@@ -741,7 +757,6 @@ export const db = {
     }
     localStorage.setItem(KEYS.QUOTES, JSON.stringify(quotes));
 
-    // Handle Transaction Logic for Statistics
     const txId = `QUOTE_${quote.id}`;
     const txIndex = transactions.findIndex(t => t.id === txId);
 
@@ -751,22 +766,18 @@ export const db = {
             amount: quote.totalAmount,
             date: new Date().toISOString(),
             status: 'success',
-            method: 'Espèces', // Assume cash/offline payment for quotes
+            method: 'Espèces', 
             userId: 'admin',
             clientPhone: quote.clientPhone || 'N/A'
         };
 
         if (txIndex >= 0) {
-            // Update existing transaction in case amount changed
             transactions[txIndex] = { ...transactions[txIndex], amount: quote.totalAmount, clientPhone: quote.clientPhone || 'N/A' };
         } else {
-            // Create new
             transactions.unshift(txData);
         }
         localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
     } else {
-        // If status is NOT accepted (e.g. moved back to draft), remove the transaction if it exists
-        // to keep stats accurate.
         if (txIndex >= 0) {
             transactions.splice(txIndex, 1);
             localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));

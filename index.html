@@ -21,7 +21,7 @@
                 900: '#14532d',
               },
               accent: {
-                500: '#f97316', // Orange for Niamey heat/vitality
+                500: '#f97316',
                 600: '#ea580c',
               }
             }
@@ -32,23 +32,33 @@
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/client": "https://aistudiocdn.com/react-dom@^19.2.1/client",
-    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.1",
-    "react-router-dom": "https://aistudiocdn.com/react-router-dom@6.22.3",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
-    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
-    "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js",
+    "vite": "https://aistudiocdn.com/vite@^7.2.7",
+    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.2",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
+    "react-router-dom": "https://aistudiocdn.com/react-router-dom@^7.10.1",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.556.0",
+    "react": "https://aistudiocdn.com/react@^19.2.1",
     "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "jspdf": "https://esm.sh/jspdf@2.5.1",
-    "jspdf-autotable": "https://esm.sh/jspdf-autotable@3.8.2"
+    "recharts": "https://aistudiocdn.com/recharts@^3.5.1",
+    "jspdf-autotable": "https://aistudiocdn.com/jspdf-autotable@^5.0.2",
+    "leaflet": "https://aistudiocdn.com/leaflet@^1.9.4",
+    "jspdf": "https://aistudiocdn.com/jspdf@^3.0.4"
   }
 }
 </script>
 </head>
   <body class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 transition-colors duration-200">
-    <div id="root"></div>
+    <div id="root">
+        <!-- Loader CSS visible avant le chargement de React -->
+        <div style="display: flex; justify-content: center; align-items: center; height: 100vh; flex-direction: column;">
+            <div style="width: 50px; height: 50px; border: 5px solid #e5e7eb; border-top: 5px solid #16a34a; border-radius: 50%; animation: spin 1s linear infinite;"></div>
+            <p style="margin-top: 20px; font-family: sans-serif; color: #4b5563;">Chargement de Kambegoye...</p>
+        </div>
+        <style>
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        </style>
+    </div>
+    <!-- IMPORTANT: Le chemin doit être relatif (commencer par ./) pour XAMPP -->
     <script type="module" src="./index.tsx"></script>
   </body>
 </html>

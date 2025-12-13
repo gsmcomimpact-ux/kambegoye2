@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
-import { Edit, Trash2, Plus, X, Upload, Image as ImageIcon } from 'lucide-react';
-import { db } from '../../services/db';
+import { Edit, Trash2, Plus, X, Image as ImageIcon } from 'lucide-react';
+import { db, generateUUID } from '../../services/db';
 import { Product, ProductCategory } from '../../types';
 
 const Products = () => {
@@ -39,7 +38,7 @@ const Products = () => {
 
   const handleCreate = () => {
     setEditingProduct({
-      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      id: generateUUID(),
       stock: 10,
       price: 0,
       imageUrl: 'https://via.placeholder.com/150'
@@ -64,18 +63,15 @@ const Products = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingProduct.name && editingProduct.price && editingProduct.category) {
-      
-      // Save Image to Media Library if new file selected
       if (imageFile && editingProduct.imageUrl) {
           await db.saveMedia({
-              id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+              id: generateUUID(),
               type: 'image',
               name: `PROD_${editingProduct.name}`,
               data: editingProduct.imageUrl,
               date: new Date().toISOString()
           });
       }
-
       // @ts-ignore
       await db.saveProduct(editingProduct as Product);
       setIsModalOpen(false);
@@ -140,16 +136,10 @@ const Products = () => {
                 </td>
               </tr>
             ))}
-            {products.length === 0 && (
-                <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Aucun produit en stock.</td>
-                </tr>
-            )}
           </tbody>
         </table>
       </div>
 
-      {/* Modal Form */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-500 bg-opacity-75 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-lg w-full p-6">
@@ -170,7 +160,7 @@ const Products = () => {
                   required
                   value={editingProduct.name || ''}
                   onChange={e => setEditingProduct({...editingProduct, name: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 />
               </div>
 
@@ -180,7 +170,7 @@ const Products = () => {
                   required
                   value={editingProduct.description || ''}
                   onChange={e => setEditingProduct({...editingProduct, description: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   rows={3}
                 />
               </div>
@@ -193,7 +183,7 @@ const Products = () => {
                     required
                     value={editingProduct.price || ''}
                     onChange={e => setEditingProduct({...editingProduct, price: parseInt(e.target.value)})}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
                 <div>
@@ -203,7 +193,7 @@ const Products = () => {
                     required
                     value={editingProduct.stock || ''}
                     onChange={e => setEditingProduct({...editingProduct, stock: parseInt(e.target.value)})}
-                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                   />
                 </div>
               </div>
@@ -214,7 +204,7 @@ const Products = () => {
                   required
                   value={editingProduct.category || ''}
                   onChange={e => setEditingProduct({...editingProduct, category: e.target.value})}
-                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                  className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                 >
                   <option value="">Sélectionner une catégorie...</option>
                   {categories.map(cat => (
@@ -237,7 +227,7 @@ const Products = () => {
                       type="file" 
                       accept="image/*"
                       onChange={handleFileChange}
-                      className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"
+                      className="block w-full text-sm text-gray-500"
                     />
                 </div>
               </div>

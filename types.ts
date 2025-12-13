@@ -73,6 +73,7 @@ export interface Transaction {
   method: string; // Relaxed to string to support 'Espèces' etc.
   userId: string; // Simulated IP or Session ID
   clientPhone?: string; // Le numéro du client qui a payé
+  details?: string; // Liste des produits vendus ou description
 }
 
 export interface ProjectRequest {

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
-import { ShieldCheck, Lock } from 'lucide-react';
+import { ShieldCheck, Lock, ShoppingCart } from 'lucide-react';
 
 const PaymentSimulation = () => {
   const [searchParams] = useSearchParams();
@@ -12,13 +12,25 @@ const PaymentSimulation = () => {
   const method = searchParams.get('method');
   const phone = searchParams.get('phone');
   const ref = searchParams.get('ref');
+  const details = searchParams.get('details');
 
   const handleConfirm = () => {
       setProcessing(true);
       setTimeout(() => {
         // Mocking the success state in session so validation passes on callback
+        // This is for local session
         sessionStorage.setItem(`sim_status_${ref}`, 'success');
-        navigate(`/payment/callback?ref=${ref}`);
+        
+        // IMPORTANT: We pass everything back to callback in URL so validation works 
+        // even if opened in a different browser/tab (where sessionStorage wouldn't exist)
+        const params = new URLSearchParams();
+        if (ref) params.append('ref', ref);
+        if (amount) params.append('amount', amount);
+        if (method) params.append('method', method);
+        if (phone) params.append('phone', phone);
+        if (details) params.append('details', details);
+        
+        navigate(`/payment/callback?${params.toString()}`);
       }, 2000);
   };
 
@@ -40,6 +52,16 @@ const PaymentSimulation = () => {
                  <span className="text-gray-500">Marchand</span>
                  <span className="font-semibold">KAMBEGOYE</span>
              </div>
+             
+             {details && (
+                 <div className="bg-blue-50 p-3 rounded border border-blue-100 text-sm">
+                     <div className="flex items-center text-blue-800 font-bold mb-1">
+                         <ShoppingCart className="w-3 h-3 mr-1" /> Commande :
+                     </div>
+                     <p className="text-gray-700 text-xs">{details}</p>
+                 </div>
+             )}
+
              <div className="flex justify-between items-center text-sm">
                  <span className="text-gray-500">Montant</span>
                  <span className="font-bold text-xl text-blue-600">{amount} FCFA</span>

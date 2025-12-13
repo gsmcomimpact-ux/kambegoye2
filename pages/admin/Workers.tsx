@@ -1,7 +1,6 @@
-
-import React, { useEffect, useState, useRef } from 'react';
-import { Trash2, Search, BadgeCheck, Eye, Plus, Edit, X, Upload, Image as ImageIcon, Phone, MapPin, Check, Ban, AlertTriangle, PlayCircle } from 'lucide-react';
-import { db } from '../../services/db';
+import React, { useEffect, useState } from 'react';
+import { Trash2, Search, BadgeCheck, Eye, Plus, Edit, X, Image as ImageIcon, Phone, MapPin, Check, Ban } from 'lucide-react';
+import { db, generateUUID } from '../../services/db';
 import { Worker, Specialty, Neighborhood } from '../../types';
 
 const Workers = () => {
@@ -11,7 +10,6 @@ const Workers = () => {
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
-  // Modal State
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingWorker, setEditingWorker] = useState<Partial<Worker>>({});
   const [photoFile, setPhotoFile] = useState<File | null>(null);
@@ -53,11 +51,9 @@ const Workers = () => {
       }
   };
 
-  // --- CRUD HANDLERS ---
-
   const handleCreate = () => {
       setEditingWorker({
-          id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+          id: generateUUID(),
           firstName: '',
           lastName: '',
           phone: '',
@@ -100,10 +96,6 @@ const Workers = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (editingWorker.firstName && editingWorker.lastName && editingWorker.phone && editingWorker.specialtyId) {
-        
-        // Save ID card or other logic could go here if we were handling files separately
-        // For now we assume photoUrl is already set via handleFileChange or default
-        
         // @ts-ignore
         await db.saveWorker(editingWorker as Worker);
         setIsModalOpen(false);
@@ -112,7 +104,6 @@ const Workers = () => {
         alert("Veuillez remplir les champs obligatoires (Nom, Prénom, Tél, Spécialité)");
     }
   };
-
 
   const getSpecialtyName = (id: string) => specialties.find(s => s.id === id)?.name || id;
   const getNeighborhoodName = (id?: string) => neighborhoods.find(n => n.id === id)?.name || '-';
@@ -183,9 +174,6 @@ const Workers = () => {
                           {worker.firstName} {worker.lastName}
                           {worker.isVerified && <BadgeCheck className="w-4 h-4 text-blue-500 ml-1" />}
                       </div>
-                      <div className="text-xs text-gray-500 flex items-center">
-                          <Eye className="w-3 h-3 mr-1"/> {worker.views || 0} vues
-                      </div>
                     </div>
                   </div>
                 </td>
@@ -195,7 +183,6 @@ const Workers = () => {
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                    <div className="flex flex-col">
                        <span>{worker.phone}</span>
-                       <span className="text-xs text-green-600">{worker.whatsapp}</span>
                    </div>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
@@ -206,79 +193,48 @@ const Workers = () => {
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
                    <div className="flex justify-end items-center gap-1">
-                      {/* BOUTON VERIFIER */}
                       <button 
                         onClick={() => toggleVerification(worker)} 
-                        className={`p-1.5 rounded-full transition-colors ${worker.isVerified ? 'text-blue-600 bg-blue-50 hover:bg-blue-100' : 'text-gray-300 hover:text-blue-500 hover:bg-gray-50'}`}
-                        title={worker.isVerified ? "Désactiver badge vérifié" : "Marquer comme vérifié"}
+                        className={`p-1.5 rounded-full transition-colors ${worker.isVerified ? 'text-blue-600 bg-blue-50' : 'text-gray-300 hover:text-blue-500'}`}
                       >
                         <BadgeCheck className="w-5 h-5" />
                       </button>
 
-                      {/* BOUTON VALIDER (Si pas actif) */}
                       {worker.accountStatus !== 'active' && (
-                        <button 
-                            onClick={() => updateStatus(worker, 'active')}
-                            className="p-1.5 rounded-full text-green-600 hover:bg-green-50"
-                            title="Valider / Activer"
-                        >
+                        <button onClick={() => updateStatus(worker, 'active')} className="p-1.5 rounded-full text-green-600 hover:bg-green-50">
                             <Check className="w-5 h-5" />
                         </button>
                       )}
 
-                      {/* BOUTON REJETER (Si en attente) */}
                       {worker.accountStatus === 'pending' && (
-                          <button 
-                            onClick={() => updateStatus(worker, 'rejected')}
-                            className="p-1.5 rounded-full text-red-600 hover:bg-red-50"
-                            title="Rejeter"
-                        >
+                          <button onClick={() => updateStatus(worker, 'rejected')} className="p-1.5 rounded-full text-red-600 hover:bg-red-50">
                             <X className="w-5 h-5" />
                         </button>
                       )}
 
-                      {/* BOUTON SUSPENDRE (Si actif) */}
                       {worker.accountStatus === 'active' && (
-                          <button 
-                            onClick={() => updateStatus(worker, 'suspended')}
-                            className="p-1.5 rounded-full text-orange-500 hover:bg-orange-50"
-                            title="Suspendre"
-                        >
+                          <button onClick={() => updateStatus(worker, 'suspended')} className="p-1.5 rounded-full text-orange-500 hover:bg-orange-50">
                             <Ban className="w-5 h-5" />
                         </button>
                       )}
 
                       <div className="h-4 w-px bg-gray-300 mx-1"></div>
 
-                      <button 
-                        onClick={() => handleEdit(worker)} 
-                        className="p-1.5 rounded text-gray-500 hover:bg-gray-100 hover:text-indigo-600"
-                        title="Modifier"
-                      >
+                      <button onClick={() => handleEdit(worker)} className="p-1.5 rounded text-gray-500 hover:text-indigo-600">
                         <Edit className="w-5 h-5" />
                       </button>
-                      <button 
-                        onClick={() => handleDelete(worker.id)} 
-                        className="p-1.5 rounded text-gray-500 hover:bg-red-50 hover:text-red-600"
-                        title="Supprimer"
-                      >
+                      <button onClick={() => handleDelete(worker.id)} className="p-1.5 rounded text-gray-500 hover:text-red-600">
                         <Trash2 className="w-5 h-5" />
                       </button>
                    </div>
                 </td>
               </tr>
             ))}
-            {filteredWorkers.length === 0 && (
-                <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Aucun ouvrier trouvé.</td>
-                </tr>
-            )}
           </tbody>
         </table>
         </div>
       </div>
 
-      {/* CREATE / EDIT MODAL */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-2xl w-full p-6 shadow-2xl">
@@ -292,7 +248,6 @@ const Workers = () => {
             </div>
             
             <form onSubmit={handleSubmit} className="space-y-6">
-                {/* Identité */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Prénom *</label>
@@ -316,7 +271,6 @@ const Workers = () => {
                     </div>
                 </div>
 
-                {/* Photo */}
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Photo de profil</label>
                   <div className="mt-2 flex items-center space-x-4">
@@ -331,12 +285,11 @@ const Workers = () => {
                         type="file" 
                         accept="image/*"
                         onChange={handleFileChange}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300"
+                        className="block w-full text-sm text-gray-500"
                       />
                   </div>
                 </div>
 
-                {/* Professionnel */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Spécialité *</label>
@@ -366,7 +319,6 @@ const Workers = () => {
                     </div>
                 </div>
 
-                 {/* Contact & Loc */}
                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Téléphone *</label>

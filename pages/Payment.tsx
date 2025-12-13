@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Lock, Smartphone, AlertCircle, ExternalLink, CheckCircle, Wallet, Globe } from 'lucide-react';
@@ -24,32 +22,31 @@ const Payment = () => {
     setLoading(true);
 
     try {
-        // Initie la transaction en base pour avoir une référence et stocker la méthode
+        // Initie la transaction et récupère l'URL
         const result = await db.initiateTransaction(paymentMethod, phone);
         
         if (result.success && result.paymentUrl) {
              setPaymentUrl(result.paymentUrl);
-             // Ouverture dans un nouvel onglet
+             // Ouvre le lien iPay dans un nouvel onglet
              window.open(result.paymentUrl, '_blank');
-             // On passe en mode "Attente de validation manuelle"
              setWaitingValidation(true);
         } else {
              alert("Erreur lors de l'initialisation du paiement.");
         }
-        setLoading(false);
     } catch (error) {
         console.error(error);
         alert("Une erreur inattendue est survenue.");
+    } finally {
         setLoading(false);
     }
   };
 
   const handleManualValidation = async () => {
       setLoading(true);
-      // Simulation de la validation réussie côté serveur
+      // On valide manuellement le paiement pour le flux utilisateur
       await db.forceValidatePayment(phone);
-      // Redirection immédiate
-      navigate('/search');
+      // Redirection immédiate vers les contacts
+      navigate('/access-contacts');
   };
 
   return (
@@ -129,7 +126,7 @@ const Payment = () => {
               <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-md flex items-start">
                  <AlertCircle className="w-5 h-5 text-blue-500 mr-2 flex-shrink-0" />
                  <p className="text-sm text-blue-700 dark:text-blue-300">
-                    Une nouvelle page sécurisée va s'ouvrir pour finaliser le paiement via <strong>iPay</strong> ({paymentMethod}).
+                    Vous allez être redirigé vers iPay pour sécuriser la transaction ({paymentMethod}).
                  </p>
               </div>
 
@@ -138,7 +135,7 @@ const Payment = () => {
                 disabled={loading || !phone}
                 className="group relative w-full flex justify-center py-3 px-4 border border-transparent text-sm font-bold rounded-md text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50 transition-colors"
               >
-                {loading ? 'Ouverture...' : `Payer ${amount} FCFA avec iPay`}
+                {loading ? 'Redirection...' : `Payer ${amount} FCFA maintenant`}
                 {!loading && <ExternalLink className="ml-2 w-5 h-5" />}
               </button>
             </form>
@@ -146,23 +143,21 @@ const Payment = () => {
             <div className="mt-8 space-y-6 animate-fade-in">
                 <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md text-center">
                     <p className="text-lg font-semibold text-green-800 dark:text-green-300 mb-2">
-                        Le lien de paiement est ouvert.
+                        Page de paiement ouverte
                     </p>
                     <p className="text-sm text-gray-600 dark:text-gray-400">
-                        Si le paiement a été effectué avec succès, cliquez ci-dessous pour accéder immédiatement aux numéros.
+                        La page sécurisée iPay s'est ouverte dans un nouvel onglet. Une fois le paiement terminé, cliquez sur le bouton ci-dessous.
                     </p>
                 </div>
 
                 {paymentUrl && (
-                    <a 
-                        href={paymentUrl}
-                        target="_blank"
-                        rel="noreferrer"
+                    <button 
+                        onClick={() => window.open(paymentUrl, '_blank')}
                         className="flex items-center justify-center w-full py-3 border border-gray-300 rounded-md text-brand-600 hover:bg-gray-50 font-medium mb-4"
                     >
                         <Globe className="w-4 h-4 mr-2" />
-                        Le lien ne s'est pas ouvert ? Cliquez ici pour payer
-                    </a>
+                        Réouvrir la page de paiement
+                    </button>
                 )}
 
                 <button
@@ -170,7 +165,7 @@ const Payment = () => {
                     disabled={loading}
                     className="w-full flex items-center justify-center py-4 px-4 border border-transparent text-lg font-bold rounded-md text-white bg-green-600 hover:bg-green-700 focus:outline-none shadow-lg transform hover:scale-105 transition-all"
                 >
-                    {loading ? 'Validation...' : 'C\'est bon, j\'ai payé !'}
+                    {loading ? 'Vérification...' : 'C\'est bon, j\'ai payé !'}
                     {!loading && <CheckCircle className="ml-2 w-6 h-6" />}
                 </button>
                 
@@ -178,7 +173,7 @@ const Payment = () => {
                     onClick={() => setWaitingValidation(false)}
                     className="w-full text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200 underline"
                 >
-                    Modifier mes informations
+                    Annuler / Recommencer
                 </button>
             </div>
         )}

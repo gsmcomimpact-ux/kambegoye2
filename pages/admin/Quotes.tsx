@@ -1,11 +1,9 @@
-
-
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 import { Plus, Trash2, Printer, Download, Edit, X, Save, FileSpreadsheet, MessageCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
-import { db } from '../../services/db';
+import { db, generateUUID } from '../../services/db';
 import { Quote, QuoteItem, ProjectRequest } from '../../types';
 
 const Quotes = () => {
@@ -13,21 +11,17 @@ const Quotes = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Partial<Quote>>({});
   
-  // New Item State for Form
   const [items, setItems] = useState<QuoteItem[]>([]);
-
   const location = useLocation();
 
   useEffect(() => {
     loadData();
   }, []);
 
-  // Check for incoming Project Request from other page
   useEffect(() => {
       if (location.state && location.state.projectRequest) {
           const projectReq = location.state.projectRequest as ProjectRequest;
           handleCreateFromProject(projectReq);
-          // Clear state so it doesn't reopen on refresh (React Router handles this, but good practice)
           window.history.replaceState({}, document.title);
       }
   }, [location]);
@@ -47,7 +41,7 @@ const Quotes = () => {
     nextMonth.setMonth(nextMonth.getMonth() + 1);
 
     setEditingQuote({
-      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      id: generateUUID(),
       number: `DEV-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       date: now.toISOString().split('T')[0],
       dueDate: nextMonth.toISOString().split('T')[0],
@@ -67,7 +61,7 @@ const Quotes = () => {
     nextMonth.setMonth(nextMonth.getMonth() + 1);
 
     setEditingQuote({
-      id: crypto.randomUUID ? crypto.randomUUID() : Date.now().toString(),
+      id: generateUUID(),
       number: `DEV-${now.getFullYear()}-${Math.floor(100 + Math.random() * 900)}`,
       projectRequestId: project.reference,
       date: now.toISOString().split('T')[0],
@@ -75,11 +69,10 @@ const Quotes = () => {
       status: 'draft',
       clientName: project.clientName,
       clientPhone: project.clientPhone,
-      clientAddress: '', // Address not captured in project request yet, maybe neighborhood
+      clientAddress: '',
       notes: `Réf Projet: ${project.reference}. Ce devis est valable 30 jours. Une avance de 40% est demandée avant de commencer les travaux.`
     });
     
-    // Add default item based on project title
     setItems([{
         id: Date.now().toString(),
         description: `Prestation : ${project.title}`,
@@ -109,15 +102,12 @@ const Quotes = () => {
         alert("Aucun numéro de téléphone enregistré pour ce client.");
         return;
     }
-
-    const cleanPhone = quote.clientPhone.replace(/\D/g, ''); // Remove non-digits
+    const cleanPhone = quote.clientPhone.replace(/\D/g, '');
     const message = `*DEVIS KAMBEGOYE*\n\nBonjour ${quote.clientName},\nVoici le récapitulatif de votre devis N° ${quote.number}.\n\n📅 Date: ${new Date(quote.date).toLocaleDateString()}\n💰 *Montant Total: ${formatPrice(quote.totalAmount)}*\n\nMerci de votre confiance.\nL'équipe KAMBEGOYE.`;
-    
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
 
-  // --- ITEM MANAGEMENT ---
   const addItem = () => {
     setItems([...items, {
       id: Date.now().toString(),
@@ -131,15 +121,11 @@ const Quotes = () => {
   const updateItem = (index: number, field: keyof QuoteItem, value: any) => {
     const newItems = [...items];
     const item = newItems[index];
-    
     // @ts-ignore
     item[field] = value;
-
-    // Recalculate total if needed
     if (field === 'quantity' || field === 'unitPrice') {
       item.total = item.quantity * item.unitPrice;
     }
-
     setItems(newItems);
   };
 
@@ -159,7 +145,6 @@ const Quotes = () => {
         items: items,
         totalAmount: calculateTotal()
       };
-      
       await db.saveQuote(fullQuote);
       setIsModalOpen(false);
       loadData();
@@ -168,26 +153,20 @@ const Quotes = () => {
     }
   };
 
-  // --- PDF GENERATION ---
   const generatePDF = (quote: Quote, action: 'download' | 'print') => {
     const doc = new jsPDF();
-
-    // COMPANY HEADER
     doc.setFontSize(22);
-    doc.setTextColor(34, 197, 94); // Brand Green
+    doc.setTextColor(34, 197, 94);
     doc.text("KAMBEGOYE", 14, 20);
-    
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text("Plateforme de mise en relation & Services", 14, 26);
     doc.text("Quartier Poudrière, Niamey, Niger", 14, 30);
     doc.text("Tél: +227 97 39 05 69 | Email: contact@kambegoye.com", 14, 34);
 
-    // QUOTE INFO header
     doc.setFontSize(16);
     doc.setTextColor(0);
     doc.text("DEVIS", 140, 20);
-    
     doc.setFontSize(10);
     doc.text(`N°: ${quote.number}`, 140, 26);
     if(quote.projectRequestId) {
@@ -196,7 +175,6 @@ const Quotes = () => {
     doc.text(`Date: ${new Date(quote.date).toLocaleDateString()}`, 140, 34);
     doc.text(`Validité: ${new Date(quote.dueDate).toLocaleDateString()}`, 140, 38);
 
-    // CLIENT INFO
     doc.setDrawColor(200);
     doc.line(14, 46, 196, 46);
 
@@ -209,7 +187,6 @@ const Quotes = () => {
     if (quote.clientPhone) doc.text(quote.clientPhone, 14, 65);
     if (quote.clientAddress) doc.text(quote.clientAddress, 14, 70);
 
-    // ITEMS TABLE
     const tableColumn = ["Description", "Qté", "Prix Unit.", "Total"];
     const tableRows = quote.items.map(item => [
       item.description,
@@ -223,7 +200,7 @@ const Quotes = () => {
       body: tableRows,
       startY: 80,
       theme: 'grid',
-      headStyles: { fillColor: [34, 197, 94] }, // Green header
+      headStyles: { fillColor: [34, 197, 94] },
       styles: { fontSize: 10, cellPadding: 3 },
       columnStyles: {
           0: { cellWidth: 'auto' },
@@ -236,12 +213,10 @@ const Quotes = () => {
     // @ts-ignore
     const finalY = doc.lastAutoTable.finalY || 150;
 
-    // TOTALS
     doc.setFontSize(12);
     doc.setFont("helvetica", "bold");
     doc.text(`TOTAL: ${formatPrice(quote.totalAmount)}`, 140, finalY + 15);
 
-    // NOTES / FOOTER
     if (quote.notes) {
         doc.setFontSize(9);
         doc.setFont("helvetica", "italic");
@@ -261,7 +236,6 @@ const Quotes = () => {
         window.open(doc.output('bloburl'), '_blank');
     }
   };
-
 
   return (
     <div>
@@ -334,16 +308,10 @@ const Quotes = () => {
                 </td>
               </tr>
             ))}
-            {quotes.length === 0 && (
-                <tr>
-                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Aucun devis créé.</td>
-                </tr>
-            )}
           </tbody>
         </table>
       </div>
 
-      {/* Editor Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
           <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full p-6 shadow-2xl h-[90vh] flex flex-col">
@@ -357,7 +325,6 @@ const Quotes = () => {
             </div>
             
             <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-2">
-                {/* Client Info Section */}
                 <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom du Client</label>
@@ -410,15 +377,8 @@ const Quotes = () => {
                             className="mt-1 block w-full rounded-md border-gray-300 p-2 border"
                         />
                     </div>
-                    {editingQuote.projectRequestId && (
-                        <div className="md:col-span-2">
-                             <label className="block text-sm font-medium text-gray-500 dark:text-gray-400">Lié au Projet</label>
-                             <div className="text-brand-600 font-bold">{editingQuote.projectRequestId}</div>
-                        </div>
-                    )}
                 </div>
 
-                {/* Items Section */}
                 <div className="mb-6">
                     <div className="flex justify-between items-center mb-2">
                         <h4 className="text-lg font-semibold text-gray-800 dark:text-white">Articles & Services</h4>

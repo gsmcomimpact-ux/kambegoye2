@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Download, Upload, AlertCircle, CheckCircle, FileJson, Trash2, RefreshCw } from 'lucide-react';
+import { Download, Upload, AlertCircle, CheckCircle, FileJson, Trash2, RefreshCw, Database } from 'lucide-react';
 import { db } from '../../services/db';
 
 const DataManagement = () => {
@@ -64,6 +64,16 @@ const DataManagement = () => {
     }
   };
 
+  const handleSeedDatabase = async () => {
+      if (window.confirm("Voulez-vous générer 50+ ouvriers et transactions fictifs pour tester l'application ?")) {
+          setPurgeStatus('processing');
+          await db.seedDatabase();
+          setPurgeStatus('success');
+          setMessage('Base de données peuplée avec succès ! La page va se recharger.');
+          setTimeout(() => window.location.reload(), 1500);
+      }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-12">
       <div>
@@ -120,6 +130,29 @@ const DataManagement = () => {
               </div>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Database Tools */}
+      <div className="border border-indigo-200 rounded-lg overflow-hidden">
+        <div className="bg-indigo-50 dark:bg-indigo-900/30 px-6 py-4 border-b border-indigo-200">
+           <h3 className="text-lg font-bold text-indigo-700 dark:text-indigo-400 flex items-center">
+             <Database className="w-5 h-5 mr-2" />
+             Outils de Base de Données
+           </h3>
+        </div>
+        <div className="bg-white dark:bg-gray-800 p-6 space-y-4">
+            <p className="text-sm text-gray-600 dark:text-gray-300">
+               Utilisez cet outil pour peupler votre base de données locale avec des données fictives réalistes (Ouvriers, Transactions) pour tester l'affichage.
+            </p>
+            <button 
+              onClick={handleSeedDatabase}
+              disabled={purgeStatus === 'processing'}
+              className="flex items-center justify-center px-4 py-2 bg-indigo-600 text-white rounded-md hover:bg-indigo-700 disabled:opacity-50"
+            >
+              <Database className="w-4 h-4 mr-2" />
+              Générer 50 Ouvriers & Transactions (Seed)
+            </button>
         </div>
       </div>
 
