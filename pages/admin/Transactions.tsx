@@ -110,7 +110,7 @@ const Transactions = () => {
           return;
       }
 
-      // On passe les détails pour qu'ils soient enregistrés
+      // On passe les détails pour qu'ils soient enregistrés dans l'URL
       const result = await db.initiateTransaction(paymentMethod, manualPhone, finalAmount, details);
       if (result.success && result.paymentUrl) {
           setGeneratedLink(result.paymentUrl);
@@ -155,7 +155,7 @@ const Transactions = () => {
       }
       
       try {
-          // 3. Mise à jour du stock (seulement si vente boutique validée)
+          // 3. Mise à jour du stock (seulement si vente directe validée, pas pour un lien)
           if (transactionType === 'sale') {
               for (const item of cart) {
                   await db.updateProductStock(item.product.id, item.quantity);
@@ -183,7 +183,6 @@ const Transactions = () => {
   // Calcul de la période
   let periodStr = "N/A";
   if (filteredTransactions.length > 0) {
-      // Comme la liste est triée décroissante : le premier est le plus récent (Max), le dernier est le plus ancien (Min)
       const maxDate = new Date(filteredTransactions[0].date).toLocaleDateString();
       const minDate = new Date(filteredTransactions[filteredTransactions.length - 1].date).toLocaleDateString();
       periodStr = `${minDate} au ${maxDate}`;
