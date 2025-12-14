@@ -127,6 +127,16 @@ export interface Quote {
   paymentMethod?: string; // Méthode de paiement si accepté
 }
 
+export interface AppEvent {
+  id: string;
+  type: 'transaction' | 'project' | 'quote' | 'media';
+  title: string;
+  description: string;
+  date: string;
+  amount?: number;
+  status?: string;
+}
+
 export interface Stats {
   totalWorkers: number;
   totalTransactions: number;
@@ -139,6 +149,7 @@ export interface Stats {
   allTransactions: Transaction[];
   pendingProjects: number;
   topWorkers: Worker[]; // New field for top stats
+  recentEvents: AppEvent[]; // Added for dashboard feed
 }
 
 export interface SystemSettings {

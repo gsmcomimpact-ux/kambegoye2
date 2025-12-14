@@ -1,7 +1,6 @@
-
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Users, Wallet, Activity, Calendar, Download, TrendingUp, Eye } from 'lucide-react';
+import { Users, Wallet, Activity, Calendar, Download, TrendingUp, Eye, FileText, DollarSign, Image as ImageIcon, Bell } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { db } from '../../services/db';
@@ -98,6 +97,32 @@ const Dashboard = () => {
     doc.save(`rapport_${method}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
+  const getEventIcon = (type: string) => {
+      switch (type) {
+          case 'transaction': return <DollarSign className="w-5 h-5 text-green-600" />;
+          case 'project': return <FileText className="w-5 h-5 text-blue-600" />;
+          case 'quote': return <FileText className="w-5 h-5 text-orange-600" />;
+          case 'media': return <ImageIcon className="w-5 h-5 text-purple-600" />;
+          default: return <Activity className="w-5 h-5 text-gray-600" />;
+      }
+  };
+
+  const getRelativeTime = (dateString: string) => {
+      const date = new Date(dateString);
+      const now = new Date();
+      const diffMs = now.getTime() - date.getTime();
+      const diffMins = Math.floor(diffMs / 60000);
+      const diffHours = Math.floor(diffMs / 3600000);
+      const diffDays = Math.floor(diffMs / 86400000);
+
+      if (diffMins < 1) return "À l'instant";
+      if (diffMins < 60) return `Il y a ${diffMins} min`;
+      if (diffHours < 24) return `Il y a ${diffHours} h`;
+      if (diffDays === 1) return "Hier";
+      if (diffDays < 7) return `Il y a ${diffDays} j`;
+      return date.toLocaleDateString();
+  };
+
   if (!stats) return <div className="p-6 text-center">Chargement des données...</div>;
 
   return (
@@ -154,47 +179,57 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Analytics Section: Top Workers */}
-      <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-        <h3 className="text-lg font-semibold mb-6 text-gray-800 dark:text-white flex items-center">
-            <Eye className="w-5 h-5 mr-2 text-brand-600" /> Profils les plus consultés
-        </h3>
-        <div className="h-64">
-            <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={stats.topWorkers} layout="vertical" margin={{ left: 40, right: 20 }}>
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                    <XAxis type="number" />
-                    <YAxis 
-                        dataKey="firstName" 
-                        type="category" 
-                        tickFormatter={(val, index) => `${val} ${stats.topWorkers[index]?.lastName?.charAt(0)}.`} 
-                        width={100}
-                    />
-                    <Tooltip cursor={{ fill: 'transparent' }} />
-                    <Bar dataKey="views" fill="#ea580c" radius={[0, 4, 4, 0]} name="Vues" barSize={20} />
-                </BarChart>
-            </ResponsiveContainer>
-        </div>
-        <div className="mt-4 overflow-x-auto">
-            <table className="min-w-full text-sm">
-                <thead>
-                    <tr className="border-b dark:border-gray-700">
-                        <th className="text-left py-2 font-medium text-gray-500">Ouvrier</th>
-                        <th className="text-left py-2 font-medium text-gray-500">Spécialité</th>
-                        <th className="text-right py-2 font-medium text-gray-500">Vues Totales</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {stats.topWorkers.map(w => (
-                        <tr key={w.id} className="border-b border-gray-100 dark:border-gray-700 last:border-0">
-                            <td className="py-2 text-gray-900 dark:text-white font-medium">{w.firstName} {w.lastName}</td>
-                            <td className="py-2 text-gray-500">{w.specialtyId}</td>
-                            <td className="py-2 text-right font-bold text-brand-600">{w.views}</td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-        </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Activity Feed (Timeline) */}
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-full max-h-[500px] overflow-y-auto">
+              <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white flex items-center sticky top-0 bg-white dark:bg-gray-800 pb-2 z-10 border-b border-gray-100 dark:border-gray-700">
+                  <Bell className="w-5 h-5 mr-2 text-brand-600" /> Activités Récentes
+              </h3>
+              <div className="space-y-4">
+                  {stats.recentEvents.length === 0 && <p className="text-gray-500 text-sm">Aucune activité récente.</p>}
+                  {stats.recentEvents.map((event) => (
+                      <div key={event.id} className="flex items-start space-x-3 pb-3 border-b border-gray-50 dark:border-gray-700 last:border-0">
+                          <div className={`mt-1 p-2 rounded-full bg-gray-100 dark:bg-gray-700`}>
+                              {getEventIcon(event.type)}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
+                                  {event.title}
+                              </p>
+                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
+                                  {event.description}
+                              </p>
+                          </div>
+                          <div className="text-xs text-gray-400 whitespace-nowrap">
+                              {getRelativeTime(event.date)}
+                          </div>
+                      </div>
+                  ))}
+              </div>
+          </div>
+
+          {/* Analytics Section: Top Workers */}
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
+            <h3 className="text-lg font-semibold mb-6 text-gray-800 dark:text-white flex items-center">
+                <Eye className="w-5 h-5 mr-2 text-brand-600" /> Profils les plus consultés
+            </h3>
+            <div className="h-64">
+                <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={stats.topWorkers} layout="vertical" margin={{ left: 40, right: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
+                        <XAxis type="number" />
+                        <YAxis 
+                            dataKey="firstName" 
+                            type="category" 
+                            tickFormatter={(val, index) => `${val} ${stats.topWorkers[index]?.lastName?.charAt(0)}.`} 
+                            width={100}
+                        />
+                        <Tooltip cursor={{ fill: 'transparent' }} />
+                        <Bar dataKey="views" fill="#ea580c" radius={[0, 4, 4, 0]} name="Vues" barSize={20} />
+                    </BarChart>
+                </ResponsiveContainer>
+            </div>
+          </div>
       </div>
 
       {/* Detailed Revenue Grid */}
@@ -270,40 +305,6 @@ const Dashboard = () => {
                </button>
              ))}
            </div>
-        </div>
-      </div>
-
-      {/* Recent Transactions Table */}
-      <div className="bg-white dark:bg-gray-800 rounded-lg shadow-sm overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700 flex justify-between items-center">
-          <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Dernières Transactions</h3>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-gray-50 dark:bg-gray-700">
-              <tr>
-                <th className="px-6 py-3 font-medium text-gray-500 dark:text-gray-300">ID</th>
-                <th className="px-6 py-3 font-medium text-gray-500 dark:text-gray-300">Date</th>
-                <th className="px-6 py-3 font-medium text-gray-500 dark:text-gray-300">Montant</th>
-                <th className="px-6 py-3 font-medium text-gray-500 dark:text-gray-300">Méthode</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
-              {stats.recentTransactions.map((tx) => (
-                <tr key={tx.id}>
-                  <td className="px-6 py-3 text-gray-900 dark:text-white">{tx.id.substring(0, 8)}...</td>
-                  <td className="px-6 py-3 text-gray-500 dark:text-gray-400">{new Date(tx.date).toLocaleDateString()}</td>
-                  <td className="px-6 py-3 text-green-600 font-bold">{tx.amount} FCFA</td>
-                  <td className="px-6 py-3 text-gray-500 dark:text-gray-400">{tx.method}</td>
-                </tr>
-              ))}
-              {stats.recentTransactions.length === 0 && (
-                <tr>
-                  <td colSpan={4} className="px-6 py-4 text-center text-gray-500">Aucune transaction récente</td>
-                </tr>
-              )}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

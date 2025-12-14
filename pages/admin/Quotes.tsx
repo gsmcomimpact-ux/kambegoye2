@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Trash2, Printer, Download, Edit, X, Save, FileSpreadsheet, MessageCircle, Check, CreditCard } from 'lucide-react';
+import { Plus, Trash2, Printer, Download, Edit, X, Save, FileSpreadsheet, MessageCircle, Check, CreditCard, Ban } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { db, generateUUID } from '../../services/db';
 import { Quote, QuoteItem, ProjectRequest } from '../../types';
+import { formatCurrency } from '../../constants';
 
 const Quotes = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
@@ -34,10 +35,6 @@ const Quotes = () => {
   const loadData = async () => {
     const data = await db.getQuotes();
     setQuotes(data);
-  };
-
-  const formatPrice = (price: number) => {
-    return new Intl.NumberFormat('fr-FR').format(price) + ' FCFA';
   };
 
   const handleCreate = () => {
@@ -96,10 +93,18 @@ const Quotes = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (window.confirm('Supprimer ce devis ?')) {
+    if (window.confirm('Supprimer ce devis DÉFINITIVEMENT ?')) {
       await db.deleteQuote(id);
       loadData();
     }
+  };
+
+  const handleCancelQuote = async (quote: Quote) => {
+      if (window.confirm("Annuler ce devis ? Il passera en statut 'Rejeté'.")) {
+          const updated = { ...quote, status: 'rejected' as const };
+          await db.saveQuote(updated);
+          loadData();
+      }
   };
 
   const openValidationModal = (quote: Quote) => {
@@ -128,7 +133,7 @@ const Quotes = () => {
         return;
     }
     const cleanPhone = quote.clientPhone.replace(/\D/g, '');
-    const message = `*DEVIS KAMBEGOYE*\n\nBonjour ${quote.clientName},\nVoici le récapitulatif de votre devis N° ${quote.number}.\n\n📅 Date: ${new Date(quote.date).toLocaleDateString()}\n💰 *Montant Total: ${formatPrice(quote.totalAmount)}*\n\nMerci de votre confiance.\nL'équipe KAMBEGOYE.`;
+    const message = `*DEVIS KAMBEGOYE*\n\nBonjour ${quote.clientName},\nVoici le récapitulatif de votre devis N° ${quote.number}.\n\n📅 Date: ${new Date(quote.date).toLocaleDateString()}\n💰 *Montant Total: ${formatCurrency(quote.totalAmount)}*\n\nMerci de votre confiance.\nL'équipe KAMBEGOYE.`;
     const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
@@ -164,115 +169,96 @@ const Quotes = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (editingQuote.clientName && items.length > 0) {
-      const fullQuote: Quote = {
-        ...(editingQuote as Quote),
-        items: items,
-        totalAmount: calculateTotal()
-      };
-      await db.saveQuote(fullQuote);
-      setIsModalOpen(false);
-      loadData();
-    } else {
-        alert("Veuillez remplir le nom du client et ajouter au moins un article.");
+    if (editingQuote.clientName && editingQuote.date) {
+        const total = calculateTotal();
+        const finalQuote = {
+            ...editingQuote,
+            items: items,
+            totalAmount: total
+        } as Quote;
+
+        await db.saveQuote(finalQuote);
+        setIsModalOpen(false);
+        loadData();
     }
   };
 
-  const generatePDF = (quote: Quote, action: 'download' | 'print') => {
-    const doc = new jsPDF();
-    doc.setFontSize(22);
-    doc.setTextColor(34, 197, 94);
-    doc.text("KAMBEGOYE", 14, 20);
-    doc.setFontSize(10);
-    doc.setTextColor(100);
-    doc.text("Plateforme de mise en relation & Services", 14, 26);
-    doc.text("Quartier Poudrière, Niamey, Niger", 14, 30);
-    doc.text("Tél: +227 97 39 05 69 | Email: contact@kambegoye.com", 14, 34);
+  const generatePDF = (quote: Quote) => {
+      const doc = new jsPDF();
 
-    doc.setFontSize(16);
-    doc.setTextColor(0);
-    doc.text("DEVIS", 140, 20);
-    doc.setFontSize(10);
-    doc.text(`N°: ${quote.number}`, 140, 26);
-    if(quote.projectRequestId) {
-        doc.text(`Réf Projet: ${quote.projectRequestId}`, 140, 30);
-    }
-    doc.text(`Date: ${new Date(quote.date).toLocaleDateString()}`, 140, 34);
-    doc.text(`Validité: ${new Date(quote.dueDate).toLocaleDateString()}`, 140, 38);
+      // Header
+      doc.setFontSize(22);
+      doc.setTextColor(22, 163, 74); // Brand color
+      doc.text("KAMBEGOYE", 14, 20);
+      
+      doc.setFontSize(10);
+      doc.setTextColor(100);
+      doc.text("Plateforme de mise en relation BTP", 14, 26);
+      doc.text("Niamey, Niger", 14, 31);
+      doc.text("Tél: +227 97 39 05 69", 14, 36);
 
-    doc.setDrawColor(200);
-    doc.line(14, 46, 196, 46);
+      // Quote Info
+      doc.setFontSize(16);
+      doc.setTextColor(0);
+      doc.text("DEVIS", 140, 20);
+      doc.setFontSize(10);
+      doc.text(`Numéro: ${quote.number}`, 140, 28);
+      doc.text(`Date: ${new Date(quote.date).toLocaleDateString()}`, 140, 33);
+      doc.text(`Validité: ${new Date(quote.dueDate).toLocaleDateString()}`, 140, 38);
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("Client :", 14, 54);
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(11);
-    doc.text(quote.clientName, 14, 60);
-    if (quote.clientPhone) doc.text(quote.clientPhone, 14, 65);
-    if (quote.clientAddress) doc.text(quote.clientAddress, 14, 70);
+      // Client Info
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text("Client:", 14, 50);
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(10);
+      doc.text(quote.clientName, 14, 56);
+      doc.text(quote.clientPhone, 14, 61);
+      if (quote.clientAddress) doc.text(quote.clientAddress, 14, 66);
 
-    const tableColumn = ["Description", "Qté", "Prix Unit.", "Total"];
-    const tableRows = quote.items.map(item => [
-      item.description,
-      item.quantity,
-      formatPrice(item.unitPrice),
-      formatPrice(item.total)
-    ]);
+      // Table
+      const tableColumn = ["Description", "Quantité", "Prix Unitaire", "Total"];
+      const tableRows = quote.items.map(item => [
+          item.description,
+          item.quantity,
+          formatCurrency(item.unitPrice),
+          formatCurrency(item.total)
+      ]);
 
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 80,
-      theme: 'grid',
-      headStyles: { fillColor: [34, 197, 94] },
-      styles: { fontSize: 10, cellPadding: 3 },
-      columnStyles: {
-          0: { cellWidth: 'auto' },
-          1: { cellWidth: 20, halign: 'center' },
-          2: { cellWidth: 35, halign: 'right' },
-          3: { cellWidth: 35, halign: 'right' }
+      autoTable(doc, {
+          head: [tableColumn],
+          body: tableRows,
+          startY: 75,
+          headStyles: { fillColor: [22, 163, 74] },
+      });
+
+      // Total
+      const finalY = (doc as any).lastAutoTable.finalY || 150;
+      doc.setFontSize(12);
+      doc.setFont("helvetica", "bold");
+      doc.text(`Total: ${formatCurrency(quote.totalAmount)}`, 140, finalY + 10);
+
+      // Notes
+      if (quote.notes) {
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(9);
+          doc.setTextColor(100);
+          doc.text("Notes:", 14, finalY + 25);
+          doc.text(quote.notes, 14, finalY + 30, { maxWidth: 180 });
       }
-    });
 
-    // @ts-ignore
-    const finalY = doc.lastAutoTable.finalY || 150;
-
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text(`TOTAL: ${formatPrice(quote.totalAmount)}`, 140, finalY + 15);
-
-    if (quote.notes) {
-        doc.setFontSize(9);
-        doc.setFont("helvetica", "italic");
-        doc.text("Notes:", 14, finalY + 30);
-        doc.setFont("helvetica", "normal");
-        doc.text(quote.notes, 14, finalY + 35);
-    }
-
-    doc.setFontSize(8);
-    doc.setTextColor(150);
-    doc.text("Merci de votre confiance.", 105, 280, { align: 'center' });
-
-    if (action === 'download') {
-        doc.save(`Devis_${quote.number}.pdf`);
-    } else {
-        doc.autoPrint();
-        window.open(doc.output('bloburl'), '_blank');
-    }
+      doc.save(`Devis_${quote.number}.pdf`);
   };
 
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white flex items-center">
-            <FileSpreadsheet className="mr-2" /> Générateur de Devis
-        </h2>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Gestion des Devis</h2>
         <button 
           onClick={handleCreate}
           className="bg-brand-600 text-white px-4 py-2 rounded-md flex items-center hover:bg-brand-700"
         >
-          <Plus className="w-4 h-4 mr-2" /> Créer un devis
+          <Plus className="w-4 h-4 mr-2" /> Nouveau Devis
         </button>
       </div>
 
@@ -280,7 +266,7 @@ const Quotes = () => {
         <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
           <thead className="bg-gray-50 dark:bg-gray-700">
             <tr>
-              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">N° Devis</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Numéro</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Client</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Total</th>
@@ -290,10 +276,9 @@ const Quotes = () => {
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
             {quotes.map((quote) => (
-              <tr key={quote.id}>
+              <tr key={quote.id} className={quote.status === 'rejected' ? 'bg-red-50 dark:bg-red-900/10' : ''}>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900 dark:text-white">
                   {quote.number}
-                  {quote.projectRequestId && <span className="block text-xs text-gray-500">Réf: {quote.projectRequestId}</span>}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                   {quote.clientName}
@@ -302,254 +287,198 @@ const Quotes = () => {
                   {new Date(quote.date).toLocaleDateString()}
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-bold text-gray-900 dark:text-white">
-                  {formatPrice(quote.totalAmount)}
+                  {formatCurrency(quote.totalAmount)}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm">
-                   <span className={`px-2 py-1 rounded-full text-xs font-bold ${
-                       quote.status === 'draft' ? 'bg-gray-100 text-gray-800' :
-                       quote.status === 'sent' ? 'bg-blue-100 text-blue-800' :
-                       quote.status === 'accepted' ? 'bg-green-100 text-green-800' :
-                       'bg-red-100 text-red-800'
-                   }`}>
-                       {quote.status.toUpperCase()}
-                   </span>
+                <td className="px-6 py-4 whitespace-nowrap">
+                   {quote.status === 'draft' && <span className="bg-gray-100 text-gray-800 px-2 py-1 text-xs font-semibold rounded-full">Brouillon</span>}
+                   {quote.status === 'sent' && <span className="bg-blue-100 text-blue-800 px-2 py-1 text-xs font-semibold rounded-full">Envoyé</span>}
+                   {quote.status === 'accepted' && <span className="bg-green-100 text-green-800 px-2 py-1 text-xs font-semibold rounded-full">Accepté (Payé)</span>}
+                   {quote.status === 'rejected' && <span className="bg-red-100 text-red-800 px-2 py-1 text-xs font-semibold rounded-full">Rejeté</span>}
                 </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right flex justify-end space-x-2">
-                  
-                  {quote.status !== 'accepted' && (
-                      <button onClick={() => openValidationModal(quote)} className="text-green-600 hover:text-green-900" title="Valider & Encaisser">
-                         <Check className="w-5 h-5" />
+                <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                  <div className="flex justify-end items-center gap-1">
+                      <button onClick={() => handleWhatsAppShare(quote)} className="text-green-500 hover:text-green-600 p-1.5" title="Envoyer WhatsApp">
+                        <MessageCircle className="w-5 h-5" />
                       </button>
-                  )}
-                  
-                  <button onClick={() => handleWhatsAppShare(quote)} className="text-green-500 hover:text-green-700" title="Envoyer par WhatsApp">
-                    <MessageCircle className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => generatePDF(quote, 'print')} className="text-gray-500 hover:text-gray-800" title="Imprimer">
-                    <Printer className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => generatePDF(quote, 'download')} className="text-gray-500 hover:text-gray-800" title="Télécharger PDF">
-                    <Download className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => handleEdit(quote)} className="text-indigo-600 hover:text-indigo-900" title="Modifier">
-                    <Edit className="w-5 h-5" />
-                  </button>
-                  <button onClick={() => handleDelete(quote.id)} className="text-red-600 hover:text-red-900" title="Supprimer">
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                      <button onClick={() => generatePDF(quote)} className="text-gray-500 hover:text-gray-700 p-1.5" title="PDF">
+                        <Download className="w-5 h-5" />
+                      </button>
+                      
+                      {quote.status !== 'accepted' && quote.status !== 'rejected' && (
+                          <button onClick={() => openValidationModal(quote)} className="text-green-600 hover:text-green-800 p-1.5" title="Valider Paiement">
+                            <CreditCard className="w-5 h-5" />
+                          </button>
+                      )}
+
+                      <button onClick={() => handleEdit(quote)} className="text-indigo-600 hover:text-indigo-900 p-1.5" title="Modifier">
+                        <Edit className="w-5 h-5" />
+                      </button>
+                      
+                      {quote.status !== 'rejected' && (
+                          <button onClick={() => handleCancelQuote(quote)} className="text-orange-500 hover:text-orange-700 p-1.5" title="Annuler (Rejeter)">
+                            <Ban className="w-5 h-5" />
+                          </button>
+                      )}
+
+                      <button onClick={() => handleDelete(quote.id)} className="text-red-600 hover:text-red-900 p-1.5" title="Supprimer">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                  </div>
                 </td>
               </tr>
             ))}
+            {quotes.length === 0 && (
+                <tr>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Aucun devis créé.</td>
+                </tr>
+            )}
           </tbody>
         </table>
       </div>
 
-      {/* Validation Modal */}
-      {isValidationModalOpen && quoteToValidate && (
-         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-             <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
-                 <div className="flex justify-between items-center mb-6 border-b pb-4 dark:border-gray-700">
-                    <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
-                        <Check className="w-5 h-5 mr-2 text-green-600" />
-                        Valider & Encaisser
-                    </h3>
-                    <button onClick={() => setIsValidationModalOpen(false)} className="text-gray-400 hover:text-gray-500">
-                        <X className="w-6 h-6" />
-                    </button>
-                 </div>
-                 
-                 <div className="space-y-4">
-                     <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md">
-                        <p className="text-sm text-green-800 dark:text-green-300">
-                            Vous êtes sur le point de valider le devis <strong>{quoteToValidate.number}</strong>.
-                            <br/>
-                            Montant total : <strong>{formatPrice(quoteToValidate.totalAmount)}</strong>
-                        </p>
-                     </div>
-
-                     <div>
-                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                             Méthode de Paiement (Encaissement)
-                         </label>
-                         <div className="relative">
-                            <CreditCard className="absolute top-3 left-3 w-5 h-5 text-gray-400" />
-                            <select
-                                value={validationMethod}
-                                onChange={(e) => setValidationMethod(e.target.value)}
-                                className="pl-10 block w-full rounded-md border-gray-300 shadow-sm p-2.5 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                            >
-                                <option value="Espèces">Espèces</option>
-                                <option value="Chèque">Chèque</option>
-                                <option value="Virement">Virement Bancaire</option>
-                                <option value="Mynita">Mynita (Moov)</option>
-                                <option value="Amanata">Amanata (Airtel)</option>
-                            </select>
-                         </div>
-                     </div>
-
-                     <div className="flex justify-end pt-4 space-x-3">
-                        <button onClick={() => setIsValidationModalOpen(false)} className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100">
-                            Annuler
-                        </button>
-                        <button onClick={confirmValidation} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center shadow-md">
-                            <Save className="w-4 h-4 mr-2" />
-                            Confirmer & Enregistrer
-                        </button>
-                     </div>
-                 </div>
-             </div>
-         </div>
-      )}
-
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full p-6 shadow-2xl h-[90vh] flex flex-col">
+          <div className="bg-white dark:bg-gray-800 rounded-lg max-w-4xl w-full p-6 shadow-xl">
             <div className="flex justify-between items-center mb-6 border-b pb-4 dark:border-gray-700">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                {editingQuote.id ? `Édition: ${editingQuote.number}` : 'Nouveau Devis'}
-              </h3>
+              <div className="flex flex-col">
+                  <h3 className="text-xl font-bold text-gray-900 dark:text-white">
+                    {editingQuote.id ? `Édition Devis ${editingQuote.number}` : 'Nouveau Devis'}
+                  </h3>
+                  {editingQuote.projectRequestId && (
+                      <span className="text-xs text-blue-600 font-medium">Lié au projet: {editingQuote.projectRequestId}</span>
+                  )}
+              </div>
               <button onClick={() => setIsModalOpen(false)} className="text-gray-400 hover:text-gray-500">
                 <X className="w-6 h-6" />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="flex-1 overflow-y-auto pr-2">
-                <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-lg mb-6 grid grid-cols-1 md:grid-cols-2 gap-4">
+            <form onSubmit={handleSubmit} className="space-y-6">
+                {/* Header Info */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-gray-50 dark:bg-gray-700 p-4 rounded-lg">
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Date</label>
+                        <input 
+                            type="date" 
+                            required
+                            value={editingQuote.date || ''}
+                            onChange={e => setEditingQuote({...editingQuote, date: e.target.value})}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-600 dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Échéance</label>
+                        <input 
+                            type="date" 
+                            required
+                            value={editingQuote.dueDate || ''}
+                            onChange={e => setEditingQuote({...editingQuote, dueDate: e.target.value})}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-600 dark:text-white"
+                        />
+                    </div>
+                    <div>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut</label>
+                        <select 
+                            value={editingQuote.status || 'draft'}
+                            // @ts-ignore
+                            onChange={e => setEditingQuote({...editingQuote, status: e.target.value})}
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-600 dark:text-white"
+                        >
+                            <option value="draft">Brouillon</option>
+                            <option value="sent">Envoyé</option>
+                            <option value="accepted">Accepté</option>
+                            <option value="rejected">Rejeté (Annulé)</option>
+                        </select>
+                    </div>
+                </div>
+
+                {/* Client Info */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Nom du Client</label>
                         <input 
                             type="text" 
                             required
-                            value={editingQuote.clientName}
+                            value={editingQuote.clientName || ''}
                             onChange={e => setEditingQuote({...editingQuote, clientName: e.target.value})}
-                            className="mt-1 block w-full rounded-md border-gray-300 p-2 border"
-                        />
-                    </div>
-                    <div>
-                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Numéro de Devis</label>
-                         <input 
-                            type="text" 
-                            value={editingQuote.number}
-                            onChange={e => setEditingQuote({...editingQuote, number: e.target.value})}
-                            className="mt-1 block w-full rounded-md border-gray-300 p-2 border font-mono bg-gray-100"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         />
                     </div>
                     <div>
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Téléphone</label>
                         <input 
                             type="text" 
-                            value={editingQuote.clientPhone}
+                            value={editingQuote.clientPhone || ''}
                             onChange={e => setEditingQuote({...editingQuote, clientPhone: e.target.value})}
-                            className="mt-1 block w-full rounded-md border-gray-300 p-2 border"
-                            placeholder="ex: 90000000"
-                        />
-                    </div>
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut</label>
-                        <select 
-                            value={editingQuote.status}
-                            onChange={e => setEditingQuote({...editingQuote, status: e.target.value as any})}
-                            className="mt-1 block w-full rounded-md border-gray-300 p-2 border"
-                        >
-                            <option value="draft">Brouillon</option>
-                            <option value="sent">Envoyé</option>
-                            <option value="accepted">Accepté</option>
-                            <option value="rejected">Refusé</option>
-                        </select>
-                    </div>
-                    
-                    {/* Show payment method if status is accepted in edit modal too */}
-                    {editingQuote.status === 'accepted' && (
-                        <div>
-                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Méthode de Paiement</label>
-                             <select
-                                value={editingQuote.paymentMethod || 'Espèces'}
-                                onChange={e => setEditingQuote({...editingQuote, paymentMethod: e.target.value})}
-                                className="mt-1 block w-full rounded-md border-gray-300 p-2 border bg-green-50"
-                            >
-                                <option value="Espèces">Espèces</option>
-                                <option value="Chèque">Chèque</option>
-                                <option value="Virement">Virement Bancaire</option>
-                                <option value="Mynita">Mynita (Moov)</option>
-                                <option value="Amanata">Amanata (Airtel)</option>
-                            </select>
-                        </div>
-                    )}
-
-                    <div className="md:col-span-2">
-                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Adresse</label>
-                        <input 
-                            type="text" 
-                            value={editingQuote.clientAddress}
-                            onChange={e => setEditingQuote({...editingQuote, clientAddress: e.target.value})}
-                            className="mt-1 block w-full rounded-md border-gray-300 p-2 border"
+                            className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
                         />
                     </div>
                 </div>
 
-                <div className="mb-6">
+                {/* Items */}
+                <div>
                     <div className="flex justify-between items-center mb-2">
-                        <h4 className="text-lg font-semibold text-gray-800 dark:text-white">Articles & Services</h4>
-                        <button type="button" onClick={addItem} className="text-sm bg-blue-100 text-blue-700 px-3 py-1 rounded hover:bg-blue-200">
-                            + Ajouter une ligne
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Prestations / Produits</label>
+                        <button type="button" onClick={addItem} className="text-sm text-brand-600 hover:text-brand-700 flex items-center">
+                            <Plus className="w-4 h-4 mr-1" /> Ajouter ligne
                         </button>
                     </div>
                     
-                    <div className="border rounded-lg overflow-hidden">
-                        <table className="min-w-full divide-y divide-gray-200">
-                            <thead className="bg-gray-100 dark:bg-gray-600">
+                    <div className="border rounded-md overflow-hidden dark:border-gray-600">
+                        <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-600">
+                            <thead className="bg-gray-50 dark:bg-gray-700">
                                 <tr>
-                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 uppercase">Description</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-24">Qté</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">Prix Unit.</th>
-                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 uppercase w-32">Total</th>
-                                    <th className="px-4 py-2 w-10"></th>
+                                    <th className="px-4 py-2 text-left text-xs font-medium text-gray-500 dark:text-gray-300">Description</th>
+                                    <th className="px-4 py-2 text-center text-xs font-medium text-gray-500 dark:text-gray-300 w-20">Qté</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 w-32">Prix U.</th>
+                                    <th className="px-4 py-2 text-right text-xs font-medium text-gray-500 dark:text-gray-300 w-32">Total</th>
+                                    <th className="w-10"></th>
                                 </tr>
                             </thead>
-                            <tbody className="bg-white dark:bg-gray-700 divide-y divide-gray-200">
+                            <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-600">
                                 {items.map((item, index) => (
-                                    <tr key={index}>
-                                        <td className="px-2 py-2">
+                                    <tr key={item.id}>
+                                        <td className="p-2">
                                             <input 
                                                 type="text" 
                                                 value={item.description}
                                                 onChange={e => updateItem(index, 'description', e.target.value)}
-                                                placeholder="Désignation"
-                                                className="w-full border-0 focus:ring-0 bg-transparent p-1"
+                                                className="w-full border-0 focus:ring-0 p-1 bg-transparent dark:text-white"
+                                                placeholder="Description..."
                                             />
                                         </td>
-                                        <td className="px-2 py-2">
+                                        <td className="p-2">
                                             <input 
                                                 type="number" 
                                                 value={item.quantity}
-                                                onChange={e => updateItem(index, 'quantity', parseFloat(e.target.value) || 0)}
-                                                className="w-full text-right border-0 focus:ring-0 bg-transparent p-1"
+                                                onChange={e => updateItem(index, 'quantity', parseInt(e.target.value))}
+                                                className="w-full border-0 focus:ring-0 p-1 text-center bg-transparent dark:text-white"
                                             />
                                         </td>
-                                        <td className="px-2 py-2">
+                                        <td className="p-2">
                                             <input 
                                                 type="number" 
                                                 value={item.unitPrice}
-                                                onChange={e => updateItem(index, 'unitPrice', parseFloat(e.target.value) || 0)}
-                                                className="w-full text-right border-0 focus:ring-0 bg-transparent p-1"
+                                                onChange={e => updateItem(index, 'unitPrice', parseInt(e.target.value))}
+                                                className="w-full border-0 focus:ring-0 p-1 text-right bg-transparent dark:text-white"
                                             />
                                         </td>
-                                        <td className="px-4 py-2 text-right font-medium">
-                                            {formatPrice(item.total)}
+                                        <td className="p-2 text-right font-medium dark:text-white">
+                                            {formatCurrency(item.total)}
                                         </td>
-                                        <td className="px-2 py-2 text-center">
+                                        <td className="p-2 text-center">
                                             <button type="button" onClick={() => removeItem(index)} className="text-red-500 hover:text-red-700">
-                                                <Trash2 className="w-4 h-4" />
+                                                <X className="w-4 h-4" />
                                             </button>
                                         </td>
                                     </tr>
                                 ))}
                             </tbody>
-                            <tfoot className="bg-gray-50 dark:bg-gray-600">
+                            <tfoot className="bg-gray-50 dark:bg-gray-700 font-bold">
                                 <tr>
-                                    <td colSpan={3} className="px-4 py-3 text-right font-bold text-gray-900 dark:text-white">TOTAL</td>
-                                    <td className="px-4 py-3 text-right font-bold text-xl text-brand-600">
-                                        {formatPrice(calculateTotal())}
+                                    <td colSpan={3} className="px-4 py-3 text-right text-gray-900 dark:text-white">TOTAL</td>
+                                    <td className="px-4 py-3 text-right text-brand-600 text-lg">
+                                        {formatCurrency(calculateTotal())}
                                     </td>
                                     <td></td>
                                 </tr>
@@ -559,25 +488,66 @@ const Quotes = () => {
                 </div>
 
                 <div>
-                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes (Pied de page)</label>
-                     <textarea 
-                        rows={2}
-                        value={editingQuote.notes}
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Notes / Conditions</label>
+                    <textarea 
+                        rows={3}
+                        value={editingQuote.notes || ''}
                         onChange={e => setEditingQuote({...editingQuote, notes: e.target.value})}
-                        className="mt-1 block w-full rounded-md border-gray-300 p-2 border"
-                     />
+                        className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    />
+                </div>
+
+                <div className="flex justify-end pt-4 border-t dark:border-gray-700">
+                    <button type="button" onClick={() => setIsModalOpen(false)} className="bg-gray-200 text-gray-700 px-4 py-2 rounded-md mr-3 hover:bg-gray-300">
+                        Annuler
+                    </button>
+                    <button type="submit" className="bg-brand-600 text-white px-6 py-2 rounded-md hover:bg-brand-700 flex items-center">
+                        <Save className="w-4 h-4 mr-2" /> Enregistrer Devis
+                    </button>
                 </div>
             </form>
-
-            <div className="border-t pt-4 mt-4 flex justify-end space-x-3">
-                 <button type="button" onClick={() => setIsModalOpen(false)} className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100">
-                     Annuler
-                 </button>
-                 <button type="button" onClick={handleSubmit} className="px-4 py-2 bg-brand-600 text-white rounded hover:bg-brand-700 flex items-center">
-                     <Save className="w-4 h-4 mr-2" /> Enregistrer le Devis
-                 </button>
-            </div>
           </div>
+        </div>
+      )}
+
+      {/* Validation Payment Modal */}
+      {isValidationModalOpen && quoteToValidate && (
+        <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-sm w-full p-6 shadow-xl text-center">
+                 <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-green-100 mb-4">
+                    <Check className="h-6 w-6 text-green-600" />
+                </div>
+                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-2">Valider le paiement ?</h3>
+                <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
+                    Confirmer que le devis <strong>{quoteToValidate.number}</strong> d'un montant de <br/>
+                    <span className="font-bold text-brand-600 text-lg">{formatCurrency(quoteToValidate.totalAmount)}</span><br/>
+                    a été réglé ?
+                </p>
+
+                <div className="text-left mb-6">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Méthode de règlement</label>
+                    <select
+                        value={validationMethod}
+                        onChange={(e) => setValidationMethod(e.target.value)}
+                        className="block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                    >
+                        <option value="Espèces">Espèces</option>
+                        <option value="Mynita">Mynita (Moov)</option>
+                        <option value="Amanata">Amanata (Airtel)</option>
+                        <option value="Virement">Virement Bancaire</option>
+                        <option value="Chèque">Chèque</option>
+                    </select>
+                </div>
+
+                <div className="flex gap-2">
+                    <button onClick={() => setIsValidationModalOpen(false)} className="flex-1 bg-gray-200 text-gray-700 py-2 rounded-md hover:bg-gray-300">
+                        Annuler
+                    </button>
+                    <button onClick={confirmValidation} className="flex-1 bg-green-600 text-white py-2 rounded-md hover:bg-green-700 font-bold">
+                        Confirmer
+                    </button>
+                </div>
+            </div>
         </div>
       )}
     </div>

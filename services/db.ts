@@ -1,4 +1,4 @@
-import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City } from '../types';
+import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent } from '../types';
 import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES } from '../constants';
 
 // Keys for LocalStorage
@@ -315,6 +315,25 @@ export const db = {
     return safeParse(KEYS.SPECIALTIES, []);
   },
 
+  saveSpecialty: async (specialty: Specialty) => {
+    await delay(300);
+    const specialties: Specialty[] = safeParse(KEYS.SPECIALTIES, []);
+    const index = specialties.findIndex(s => s.id === specialty.id);
+    if (index >= 0) {
+      specialties[index] = specialty;
+    } else {
+      specialties.push(specialty);
+    }
+    localStorage.setItem(KEYS.SPECIALTIES, JSON.stringify(specialties));
+  },
+
+  deleteSpecialty: async (id: string) => {
+    await delay(300);
+    let specialties: Specialty[] = safeParse(KEYS.SPECIALTIES, []);
+    specialties = specialties.filter(s => s.id !== id);
+    localStorage.setItem(KEYS.SPECIALTIES, JSON.stringify(specialties));
+  },
+
   getCountries: async () => {
     await delay(100);
     return safeParse(KEYS.COUNTRIES, INITIAL_COUNTRIES);
@@ -385,6 +404,18 @@ export const db = {
       transactions.unshift(newTx);
       localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
       return newTx;
+  },
+
+  updateTransaction: async (updatedTx: Transaction) => {
+      await delay(200);
+      const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
+      const index = transactions.findIndex(t => t.id === updatedTx.id);
+      if (index >= 0) {
+          transactions[index] = updatedTx;
+          localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+          return true;
+      }
+      return false;
   },
   
   updateProductStock: async (id: string, quantitySold: number) => {
@@ -475,11 +506,13 @@ export const db = {
       return remaining > 0 ? Math.floor(remaining / 1000) : 0;
   },
 
-  getStats: async () => {
+  getStats: async (): Promise<Stats> => {
     await delay(500);
     const workers: Worker[] = safeParse(KEYS.WORKERS, []);
     const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
     const projectRequests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
+    const quotes: Quote[] = safeParse(KEYS.QUOTES, []);
+    const media: MediaItem[] = safeParse(KEYS.MEDIA, []);
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -514,6 +547,49 @@ export const db = {
         .sort((a, b) => (b.views || 0) - (a.views || 0))
         .slice(0, 5);
 
+    // Aggregate Events
+    const events: AppEvent[] = [];
+    
+    transactions.forEach(t => events.push({
+        id: t.id,
+        type: 'transaction',
+        title: `Paiement: ${t.amount} FCFA`,
+        description: `${t.method} - ${t.clientPhone || 'Client'}`,
+        date: t.date,
+        amount: t.amount,
+        status: t.status
+    }));
+
+    projectRequests.forEach(p => events.push({
+        id: p.id,
+        type: 'project',
+        title: `Projet: ${p.title}`,
+        description: `Client: ${p.clientName} (${p.category})`,
+        date: p.date,
+        status: p.status
+    }));
+
+    quotes.forEach(q => events.push({
+        id: q.id,
+        type: 'quote',
+        title: `Devis: ${q.number}`,
+        description: `Client: ${q.clientName} - ${q.totalAmount} F`,
+        date: q.date,
+        amount: q.totalAmount,
+        status: q.status
+    }));
+
+    media.forEach(m => events.push({
+        id: m.id,
+        type: 'media',
+        title: `Média: ${m.name}`,
+        description: m.type === 'image' ? 'Image uploadée' : 'Document uploadé',
+        date: m.date
+    }));
+
+    // Sort by date descending
+    events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
     return {
       totalWorkers: workers.length,
       totalTransactions: transactions.length,
@@ -525,7 +601,8 @@ export const db = {
       recentTransactions: transactions.slice(0, 5),
       allTransactions: transactions,
       pendingProjects: projectRequests.filter(p => p.status === 'new').length,
-      topWorkers
+      topWorkers,
+      recentEvents: events.slice(0, 15) // Keep last 15 events
     };
   },
 

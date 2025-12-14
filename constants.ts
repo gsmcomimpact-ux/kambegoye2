@@ -1,5 +1,3 @@
-
-
 import { Specialty, Neighborhood, Worker, Product, ProductCategory, Country, City } from './types';
 
 export const PAYMENT_AMOUNT = 200;
@@ -8,6 +6,16 @@ export const PAYMENT_AMOUNT = 200;
 export const MERCHANT_NUMBERS = {
   MYNITA: '90 00 00 00', // À remplacer par le vrai numéro Moov/Mynita
   AMANATA: '97 39 05 69'  // Numéro Airtel/Amanata (Basé sur le contact admin)
+};
+
+// Fonction de formatage des prix (ex: 10000 -> 10.000 FCFA)
+export const formatCurrency = (amount: number | string | undefined): string => {
+  if (amount === undefined || amount === null) return '0 FCFA';
+  const num = typeof amount === 'string' ? parseInt(amount, 10) : amount;
+  if (isNaN(num)) return '0 FCFA';
+  
+  // Utilisation du point comme séparateur de milliers
+  return num.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ".") + " FCFA";
 };
 
 // CONFIGURATION I-PAY.MONEY

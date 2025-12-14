@@ -22,6 +22,7 @@ import AdminDataManagement from './pages/admin/DataManagement';
 import AdminSettings from './pages/admin/Settings';
 import AdminProducts from './pages/admin/Products';
 import AdminProductCategories from './pages/admin/ProductCategories';
+import AdminSpecialties from './pages/admin/Specialties';
 import AdminProjectRequests from './pages/admin/ProjectRequests';
 import AdminMediaLibrary from './pages/admin/MediaLibrary';
 import AdminQuotes from './pages/admin/Quotes';
@@ -121,10 +122,12 @@ const App = () => {
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
             <Route path="ouvriers" element={<AdminWorkers />} />
+            <Route path="specialties" element={<AdminSpecialties />} />
             <Route path="produits" element={<AdminProducts />} />
             <Route path="categories-produits" element={<AdminProductCategories />} />
             <Route path="projets" element={<AdminProjectRequests />} />
             <Route path="devis" element={<AdminQuotes />} />
+            <Route path="factures" element={<AdminTransactions />} />
             <Route path="paiements" element={<AdminTransactions />} />
             <Route path="media" element={<AdminMediaLibrary />} />
             <Route path="data" element={<AdminDataManagement />} />
