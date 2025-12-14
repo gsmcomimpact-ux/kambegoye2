@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Plus, Trash2, Printer, Download, Edit, X, Save, FileSpreadsheet, MessageCircle } from 'lucide-react';
+import { Plus, Trash2, Printer, Download, Edit, X, Save, FileSpreadsheet, MessageCircle, Check, CreditCard } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { db, generateUUID } from '../../services/db';
@@ -10,6 +10,11 @@ const Quotes = () => {
   const [quotes, setQuotes] = useState<Quote[]>([]);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingQuote, setEditingQuote] = useState<Partial<Quote>>({});
+  
+  // Validation Modal State
+  const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
+  const [quoteToValidate, setQuoteToValidate] = useState<Quote | null>(null);
+  const [validationMethod, setValidationMethod] = useState('Espèces');
   
   const [items, setItems] = useState<QuoteItem[]>([]);
   const location = useLocation();
@@ -95,6 +100,26 @@ const Quotes = () => {
       await db.deleteQuote(id);
       loadData();
     }
+  };
+
+  const openValidationModal = (quote: Quote) => {
+      setQuoteToValidate(quote);
+      setValidationMethod('Espèces');
+      setIsValidationModalOpen(true);
+  };
+
+  const confirmValidation = async () => {
+      if (quoteToValidate) {
+          const updated = { 
+              ...quoteToValidate, 
+              status: 'accepted' as const,
+              paymentMethod: validationMethod
+          };
+          await db.saveQuote(updated);
+          setIsValidationModalOpen(false);
+          setQuoteToValidate(null);
+          loadData();
+      }
   };
 
   const handleWhatsAppShare = (quote: Quote) => {
@@ -290,6 +315,13 @@ const Quotes = () => {
                    </span>
                 </td>
                 <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right flex justify-end space-x-2">
+                  
+                  {quote.status !== 'accepted' && (
+                      <button onClick={() => openValidationModal(quote)} className="text-green-600 hover:text-green-900" title="Valider & Encaisser">
+                         <Check className="w-5 h-5" />
+                      </button>
+                  )}
+                  
                   <button onClick={() => handleWhatsAppShare(quote)} className="text-green-500 hover:text-green-700" title="Envoyer par WhatsApp">
                     <MessageCircle className="w-5 h-5" />
                   </button>
@@ -311,6 +343,63 @@ const Quotes = () => {
           </tbody>
         </table>
       </div>
+
+      {/* Validation Modal */}
+      {isValidationModalOpen && quoteToValidate && (
+         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
+             <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+                 <div className="flex justify-between items-center mb-6 border-b pb-4 dark:border-gray-700">
+                    <h3 className="text-xl font-bold text-gray-900 dark:text-white flex items-center">
+                        <Check className="w-5 h-5 mr-2 text-green-600" />
+                        Valider & Encaisser
+                    </h3>
+                    <button onClick={() => setIsValidationModalOpen(false)} className="text-gray-400 hover:text-gray-500">
+                        <X className="w-6 h-6" />
+                    </button>
+                 </div>
+                 
+                 <div className="space-y-4">
+                     <div className="bg-green-50 dark:bg-green-900/20 p-4 rounded-md">
+                        <p className="text-sm text-green-800 dark:text-green-300">
+                            Vous êtes sur le point de valider le devis <strong>{quoteToValidate.number}</strong>.
+                            <br/>
+                            Montant total : <strong>{formatPrice(quoteToValidate.totalAmount)}</strong>
+                        </p>
+                     </div>
+
+                     <div>
+                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                             Méthode de Paiement (Encaissement)
+                         </label>
+                         <div className="relative">
+                            <CreditCard className="absolute top-3 left-3 w-5 h-5 text-gray-400" />
+                            <select
+                                value={validationMethod}
+                                onChange={(e) => setValidationMethod(e.target.value)}
+                                className="pl-10 block w-full rounded-md border-gray-300 shadow-sm p-2.5 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            >
+                                <option value="Espèces">Espèces</option>
+                                <option value="Chèque">Chèque</option>
+                                <option value="Virement">Virement Bancaire</option>
+                                <option value="Mynita">Mynita (Moov)</option>
+                                <option value="Amanata">Amanata (Airtel)</option>
+                            </select>
+                         </div>
+                     </div>
+
+                     <div className="flex justify-end pt-4 space-x-3">
+                        <button onClick={() => setIsValidationModalOpen(false)} className="px-4 py-2 border rounded text-gray-700 hover:bg-gray-100">
+                            Annuler
+                        </button>
+                        <button onClick={confirmValidation} className="px-4 py-2 bg-green-600 text-white rounded hover:bg-green-700 flex items-center shadow-md">
+                            <Save className="w-4 h-4 mr-2" />
+                            Confirmer & Enregistrer
+                        </button>
+                     </div>
+                 </div>
+             </div>
+         </div>
+      )}
 
       {isModalOpen && (
         <div className="fixed inset-0 z-50 overflow-y-auto bg-gray-900 bg-opacity-75 flex items-center justify-center p-4">
@@ -368,6 +457,25 @@ const Quotes = () => {
                             <option value="rejected">Refusé</option>
                         </select>
                     </div>
+                    
+                    {/* Show payment method if status is accepted in edit modal too */}
+                    {editingQuote.status === 'accepted' && (
+                        <div>
+                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Méthode de Paiement</label>
+                             <select
+                                value={editingQuote.paymentMethod || 'Espèces'}
+                                onChange={e => setEditingQuote({...editingQuote, paymentMethod: e.target.value})}
+                                className="mt-1 block w-full rounded-md border-gray-300 p-2 border bg-green-50"
+                            >
+                                <option value="Espèces">Espèces</option>
+                                <option value="Chèque">Chèque</option>
+                                <option value="Virement">Virement Bancaire</option>
+                                <option value="Mynita">Mynita (Moov)</option>
+                                <option value="Amanata">Amanata (Airtel)</option>
+                            </select>
+                        </div>
+                    )}
+
                     <div className="md:col-span-2">
                         <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Adresse</label>
                         <input 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, MessageCircle, Truck, ShieldCheck, Check, CreditCard, Wallet } from 'lucide-react';
+import { ArrowLeft, MessageCircle, Truck, ShieldCheck, Check, CreditCard, Wallet, ExternalLink } from 'lucide-react';
 import { db } from '../services/db';
 import { Product } from '../types';
 
@@ -47,7 +47,13 @@ const ShopProduct = () => {
           const result = await db.initiateTransaction(paymentMethod, clientPhone, product.price, details);
           
           if (result.success && result.paymentUrl) {
-              window.location.href = result.paymentUrl;
+              // Ouvrir dans un nouvel onglet comme demandé
+              const newWindow = window.open(result.paymentUrl, '_blank');
+              if (!newWindow || newWindow.closed || typeof newWindow.closed === 'undefined') {
+                  // Fallback si le bloqueur de popup est actif
+                  alert("Veuillez autoriser les pop-ups pour ouvrir la page de paiement, ou cliquez sur le lien qui va s'afficher.");
+                  window.location.href = result.paymentUrl;
+              }
           } else {
               alert("Erreur lors de l'initialisation du paiement.");
           }
@@ -167,6 +173,7 @@ const ShopProduct = () => {
                             >
                                 <CreditCard className="w-5 h-5 mr-2" />
                                 {isProcessing ? 'Initialisation...' : `Payer ${product.price.toLocaleString()} FCFA`}
+                                {!isProcessing && <ExternalLink className="w-4 h-4 ml-2 opacity-70" />}
                             </button>
                         </div>
                     </div>

@@ -764,16 +764,19 @@ export const db = {
         const txData: Transaction = {
             id: txId,
             amount: quote.totalAmount,
-            date: new Date().toISOString(),
+            date: (txIndex >= 0 ? transactions[txIndex].date : new Date().toISOString()), // Keep original date if exists
             status: 'success',
-            method: 'Espèces', 
+            method: quote.paymentMethod || 'Espèces', 
             userId: 'admin',
-            clientPhone: quote.clientPhone || 'N/A'
+            clientPhone: quote.clientPhone || 'N/A',
+            details: `Règlement Devis ${quote.number} (${quote.clientName})`
         };
 
         if (txIndex >= 0) {
-            transactions[txIndex] = { ...transactions[txIndex], amount: quote.totalAmount, clientPhone: quote.clientPhone || 'N/A' };
+            // Update existing transaction
+            transactions[txIndex] = txData;
         } else {
+            // New transaction
             transactions.unshift(txData);
         }
         localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));

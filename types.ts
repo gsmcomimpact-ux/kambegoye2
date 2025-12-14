@@ -124,6 +124,7 @@ export interface Quote {
   totalAmount: number;
   status: 'draft' | 'sent' | 'accepted' | 'rejected';
   notes?: string;
+  paymentMethod?: string; // Méthode de paiement si accepté
 }
 
 export interface Stats {

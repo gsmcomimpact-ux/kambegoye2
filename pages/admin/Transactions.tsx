@@ -39,6 +39,7 @@ const Transactions = () => {
   }, []);
 
   const loadData = async () => {
+    setLoading(true);
     // Parallel fetch for stats and products
     const [stats, prods] = await Promise.all([
         db.getStats(),
@@ -46,9 +47,11 @@ const Transactions = () => {
     ]);
     
     // Sort transactions
-    const sorted = stats.allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    setTransactions(sorted); 
-    setProducts(prods);
+    if (stats && stats.allTransactions) {
+        const sorted = stats.allTransactions.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+        setTransactions(sorted); 
+    }
+    setProducts(prods || []);
     setLoading(false);
   };
 
@@ -128,45 +131,55 @@ const Transactions = () => {
   const handleManualAdd = async (e: React.FormEvent) => {
       e.preventDefault();
       
-      let finalAmount = manualAmount;
-      let details = '';
+      try {
+          let finalAmount = 0;
+          let details = '';
+          const isSale = transactionType === 'sale';
 
-      // 1. Calcul et préparation des données
-      if (transactionType === 'sale') {
-          if (cart.length === 0) {
-              alert("Veuillez ajouter des produits au panier.");
+          // 1. Calcul et préparation des données
+          if (isSale) {
+              if (cart.length === 0) {
+                  alert("Veuillez ajouter des produits au panier.");
+                  return;
+              }
+              finalAmount = calculateCartTotal();
+              details = cart.map(item => `${item.quantity}x ${item.product.name}`).join(', ');
+          } else {
+              finalAmount = manualAmount;
+              details = 'Encaissement simple';
+          }
+
+          // 2. Validations
+          // MODIFICATION: Téléphone facultatif UNIQUEMENT si Espèces
+          if (!manualPhone && paymentMethod !== 'Espèces') {
+              alert("Le numéro du client est obligatoire pour les paiements mobiles.");
               return;
           }
-          finalAmount = calculateCartTotal();
-          details = cart.map(item => `${item.quantity}x ${item.product.name}`).join(', ');
-      } else {
-          details = 'Encaissement simple';
-      }
 
-      // 2. Validations
-      if (!manualPhone) {
-          alert("Le numéro du client est obligatoire.");
-          return;
-      }
-
-      if (finalAmount <= 0) {
-          alert("Le montant doit être supérieur à 0.");
-          return;
-      }
-      
-      try {
+          if (finalAmount <= 0) {
+              alert("Le montant doit être supérieur à 0.");
+              return;
+          }
+          
+          // Si Espèces sans téléphone, on met une valeur par défaut
+          const phoneToSave = manualPhone || (isSale ? 'Client Boutique' : 'Client Comptoir');
+          
           // 3. Mise à jour du stock (seulement si vente directe validée, pas pour un lien)
-          if (transactionType === 'sale') {
+          if (isSale) {
               for (const item of cart) {
                   await db.updateProductStock(item.product.id, item.quantity);
               }
           }
 
           // 4. Enregistrement transaction
-          await db.addManualTransaction(finalAmount, manualPhone, paymentMethod, details);
+          await db.addManualTransaction(finalAmount, phoneToSave, paymentMethod, details);
           
+          // 5. Reset et rechargement
           resetModal();
-          await loadData();
+          await loadData(); // Force le rechargement des données
+          
+          alert("Paiement enregistré avec succès !");
+          
       } catch (err) {
           console.error("Erreur lors de la validation:", err);
           alert("Une erreur est survenue lors de l'enregistrement de la transaction.");
@@ -374,11 +387,12 @@ const Transactions = () => {
                </div>
 
                <div>
-                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Numéro du client</label>
+                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                       Numéro du client {paymentMethod === 'Espèces' && <span className="text-gray-400 font-normal">(Facultatif)</span>}
+                   </label>
                    <input 
                       type="text" 
-                      required
-                      placeholder="Ex: 90000000"
+                      placeholder={paymentMethod === 'Espèces' ? "Facultatif pour espèces" : "Ex: 90000000"}
                       value={manualPhone}
                       onChange={e => setManualPhone(e.target.value)}
                       className="mt-1 block w-full rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
