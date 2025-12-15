@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, NavigateFunction } from 'react-router-dom';
-import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock } from 'lucide-react';
+import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock, Flame } from 'lucide-react';
 import { db } from '../services/db';
 import { Worker, Specialty, Country, City, Neighborhood } from '../types';
 
@@ -25,6 +25,9 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
     ? `${worker.firstName} ${worker.lastName}` 
     : `${worker.firstName} ${worker.lastName.charAt(0)}.`;
 
+  // Popularity Logic: >50 views OR >4.5 rating with >5 reviews
+  const isPopular = (worker.views && worker.views > 50) || (worker.rating > 4.5 && worker.reviewCount > 5);
+
   return (
     <div className={`rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border ${isNearby ? 'border-orange-200 bg-orange-50 dark:bg-gray-800 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
       <div className="relative h-48 bg-gray-100 overflow-hidden">
@@ -44,11 +47,18 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
           </div>
         )}
 
-        {worker.isVerified && hasPaid && (
-          <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center shadow-md z-10">
-            <BadgeCheck className="w-3 h-3 mr-1" /> Vérifié
-          </div>
-        )}
+        <div className="absolute top-2 right-2 flex flex-col gap-1 z-10">
+            {isPopular && (
+                <div className="bg-orange-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center shadow-md justify-center">
+                    <Flame className="w-3 h-3 mr-1 fill-white" /> Populaire
+                </div>
+            )}
+            {worker.isVerified && hasPaid && (
+            <div className="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center shadow-md justify-center">
+                <BadgeCheck className="w-3 h-3 mr-1" /> Vérifié
+            </div>
+            )}
+        </div>
         
         <div className={`absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-semibold z-10 ${
           worker.availability === 'available' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'

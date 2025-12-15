@@ -44,7 +44,8 @@ const ShopProduct = () => {
       
       try {
           const details = `Achat Boutique: ${product.name}`;
-          const result = await db.initiateTransaction(paymentMethod, clientPhone, product.price, details);
+          // Explicitly pass 'store' category to avoid using the 'access' link
+          const result = await db.initiateTransaction(paymentMethod, clientPhone, product.price, details, 'store');
           
           if (result.success && result.paymentUrl) {
               // Ouvrir dans un nouvel onglet comme demandé

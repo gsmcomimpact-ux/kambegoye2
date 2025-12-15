@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
-import { Download, Filter, TrendingUp, Calendar, Plus, X, Save, ShoppingBag, Trash2, Link as LinkIcon, Copy, Check, FileText, Printer, Search, MinusCircle, PlusCircle, Edit, Ban, AlertTriangle } from 'lucide-react';
+import { Download, Filter, TrendingUp, Calendar, Plus, X, Save, ShoppingBag, Trash2, Link as LinkIcon, Copy, Check, FileText, Printer, Search, MinusCircle, PlusCircle, Edit, Ban, AlertTriangle, Tag } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { db } from '../../services/db';
-import { Transaction, Product } from '../../types';
+import { Transaction, Product, TransactionCategory } from '../../types';
 import { formatCurrency } from '../../constants';
 
 interface CartItem {
@@ -33,6 +33,7 @@ const Transactions = () => {
   const [transactionType, setTransactionType] = useState<'simple' | 'sale'>('simple');
   const [paymentMethod, setPaymentMethod] = useState<string>('Espèces');
   const [transactionStatus, setTransactionStatus] = useState<'success' | 'pending' | 'failed'>('success');
+  const [transactionCategory, setTransactionCategory] = useState<TransactionCategory>('manual');
   
   // Sales UI State
   const [productSearchTerm, setProductSearchTerm] = useState('');
@@ -106,6 +107,7 @@ const Transactions = () => {
       setTransactionType(isInvoicePage ? 'sale' : 'simple'); // Reset to default based on page
       setPaymentMethod('Espèces');
       setTransactionStatus('success');
+      setTransactionCategory('manual');
       setGeneratedLink(null);
       setCopied(false);
       setIsModalOpen(false);
@@ -118,6 +120,7 @@ const Transactions = () => {
       setManualDescription(tx.details || '');
       setPaymentMethod(tx.method);
       setTransactionStatus(tx.status);
+      setTransactionCategory(tx.category || 'manual');
       
       // En mode édition, on simplifie : on édite le texte des détails et le montant total
       setTransactionType('simple'); 
@@ -235,6 +238,7 @@ const Transactions = () => {
   const handleGenerateLink = async () => {
       let finalAmount = manualAmount;
       let details = '';
+      let cat: TransactionCategory = transactionCategory;
 
       if (transactionType === 'sale') {
           if (cart.length === 0) {
@@ -243,6 +247,7 @@ const Transactions = () => {
           }
           finalAmount = calculateCartTotal();
           details = cart.map(item => `${item.quantity}x ${item.product.name}`).join(', ');
+          cat = 'store';
       } else {
           // Use manual description or fallback
           details = manualDescription || 'Encaissement divers';
@@ -253,7 +258,7 @@ const Transactions = () => {
           return;
       }
 
-      const result = await db.initiateTransaction(paymentMethod, manualPhone, finalAmount, details);
+      const result = await db.initiateTransaction(paymentMethod, manualPhone, finalAmount, details, cat);
       if (result.success && result.paymentUrl) {
           setGeneratedLink(result.paymentUrl);
       }
@@ -273,6 +278,7 @@ const Transactions = () => {
       try {
           let finalAmount = 0;
           let details = '';
+          let cat: TransactionCategory = transactionCategory;
           const isSale = transactionType === 'sale';
 
           if (isSale) {
@@ -282,6 +288,7 @@ const Transactions = () => {
               }
               finalAmount = calculateCartTotal();
               details = cart.map(item => `${item.quantity}x ${item.product.name}`).join(', ');
+              cat = 'store';
           } else {
               finalAmount = manualAmount;
               details = manualDescription || 'Encaissement divers';
@@ -307,7 +314,8 @@ const Transactions = () => {
                   clientPhone: phoneToSave,
                   details: details,
                   method: paymentMethod,
-                  status: transactionStatus
+                  status: transactionStatus,
+                  category: cat
               };
               await db.updateTransaction(updatedTx);
               alert("Transaction mise à jour !");
@@ -319,7 +327,7 @@ const Transactions = () => {
                   }
               }
 
-              const newTx = await db.addManualTransaction(finalAmount, phoneToSave, paymentMethod, details);
+              const newTx = await db.addManualTransaction(finalAmount, phoneToSave, paymentMethod, details, cat);
               
               if (isSale && newTx) {
                   generateInvoice(newTx, 'print');
@@ -367,12 +375,13 @@ const Transactions = () => {
     doc.text(`MONTANT TOTAL ENCAISSÉ: ${formatCurrency(totalAmount)}`, 14, 52);
     doc.setFont("helvetica", "normal");
 
-    const tableColumn = ["ID", "Date", "Tél Client", "Montant", "Méthode", "Statut"];
+    const tableColumn = ["ID", "Date", "Tél Client", "Montant", "Type", "Méthode", "Statut"];
     const tableRows = filteredTransactions.map(tx => [
       tx.id.substring(0, 8),
       new Date(tx.date).toLocaleDateString() + ' ' + new Date(tx.date).toLocaleTimeString(),
       tx.clientPhone || 'N/A',
       formatCurrency(tx.amount),
+      tx.category || 'manual',
       tx.method,
       tx.status === 'success' ? 'Validé' : 'Annulé/Échoué'
     ]);
@@ -387,13 +396,22 @@ const Transactions = () => {
     doc.save(`transactions_${filterMethod}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
+  const getCategoryLabel = (cat: string) => {
+      switch(cat) {
+          case 'access': return { label: 'Accès', color: 'bg-blue-100 text-blue-800' };
+          case 'store': return { label: 'Boutique', color: 'bg-purple-100 text-purple-800' };
+          case 'quote': return { label: 'Devis', color: 'bg-orange-100 text-orange-800' };
+          default: return { label: 'Autre', color: 'bg-gray-100 text-gray-800' };
+      }
+  };
+
   if (loading) return <div className="p-8 text-center">Chargement...</div>;
 
   return (
     <div>
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
         <h2 className="text-2xl font-bold text-gray-800 dark:text-white">
-          {isInvoicePage ? 'Gestion des Factures' : 'Historique des Transactions'}
+          {isInvoicePage ? 'Gestion des Factures' : 'Historique Financier'}
         </h2>
         
         <div className="flex space-x-2">
@@ -459,74 +477,83 @@ const Transactions = () => {
             <tr>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Date</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Tél. Client</th>
+              <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Type / Source</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Montant</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Méthode</th>
               <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">Statut / Actions</th>
             </tr>
           </thead>
           <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
-            {filteredTransactions.map((tx) => (
-              <tr key={tx.id} className={tx.status === 'failed' ? 'bg-red-50 dark:bg-red-900/10' : ''}>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
-                  {new Date(tx.date).toLocaleString()}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
-                  {tx.clientPhone || '-'}
-                </td>
-                <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${tx.status === 'failed' ? 'text-gray-400 line-through' : 'text-green-600'}`}>
-                  {formatCurrency(tx.amount)}
-                </td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
-                  {tx.method}
-                </td>
-                <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
-                   <div className="flex justify-between items-center">
-                       <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full mr-2 ${
-                          tx.status === 'success' ? 'bg-green-100 text-green-800' : 
-                          tx.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
-                       }`}>
-                        {tx.status === 'success' ? 'Succès' : tx.status === 'failed' ? 'Annulé' : tx.status}
+            {filteredTransactions.map((tx) => {
+                const catStyle = getCategoryLabel(tx.category);
+                return (
+                  <tr key={tx.id} className={tx.status === 'failed' ? 'bg-red-50 dark:bg-red-900/10' : ''}>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
+                      {new Date(tx.date).toLocaleString()}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900 dark:text-white">
+                      {tx.clientPhone || '-'}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm">
+                       <span className={`px-2 py-1 rounded text-xs font-bold uppercase ${catStyle.color}`}>
+                           {catStyle.label}
                        </span>
-                       
-                       <div className="flex gap-1">
-                           <button 
-                            onClick={() => generateInvoice(tx, 'print')}
-                            className="p-1.5 text-gray-500 hover:text-blue-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
-                            title="Imprimer"
-                           >
-                               <Printer className="w-4 h-4" />
-                           </button>
-                           <button 
-                            onClick={() => generateInvoice(tx, 'download')}
-                            className="p-1.5 text-gray-500 hover:text-green-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
-                            title="PDF"
-                           >
-                               <Download className="w-4 h-4" />
-                           </button>
-                           <button 
-                            onClick={() => handleEdit(tx)}
-                            className="p-1.5 text-gray-500 hover:text-indigo-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
-                            title="Modifier"
-                           >
-                               <Edit className="w-4 h-4" />
-                           </button>
-                           {tx.status === 'success' && (
+                    </td>
+                    <td className={`px-6 py-4 whitespace-nowrap text-sm font-bold ${tx.status === 'failed' ? 'text-gray-400 line-through' : 'text-green-600'}`}>
+                      {formatCurrency(tx.amount)}
+                    </td>
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900 dark:text-white">
+                      {tx.method}
+                    </td>
+                    <td className="px-6 py-4 text-sm text-gray-500 dark:text-gray-400">
+                       <div className="flex justify-between items-center">
+                           <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full mr-2 ${
+                              tx.status === 'success' ? 'bg-green-100 text-green-800' : 
+                              tx.status === 'failed' ? 'bg-red-100 text-red-800' : 'bg-yellow-100 text-yellow-800'
+                           }`}>
+                            {tx.status === 'success' ? 'Succès' : tx.status === 'failed' ? 'Annulé' : tx.status}
+                           </span>
+                           
+                           <div className="flex gap-1">
                                <button 
-                                onClick={() => handleCancelTransaction(tx)}
-                                className="p-1.5 text-gray-500 hover:text-red-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
-                                title="Annuler (Marquer comme échoué)"
+                                onClick={() => generateInvoice(tx, 'print')}
+                                className="p-1.5 text-gray-500 hover:text-blue-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
+                                title="Imprimer"
                                >
-                                   <Ban className="w-4 h-4" />
+                                   <Printer className="w-4 h-4" />
                                </button>
-                           )}
+                               <button 
+                                onClick={() => generateInvoice(tx, 'download')}
+                                className="p-1.5 text-gray-500 hover:text-green-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
+                                title="PDF"
+                               >
+                                   <Download className="w-4 h-4" />
+                               </button>
+                               <button 
+                                onClick={() => handleEdit(tx)}
+                                className="p-1.5 text-gray-500 hover:text-indigo-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
+                                title="Modifier"
+                               >
+                                   <Edit className="w-4 h-4" />
+                               </button>
+                               {tx.status === 'success' && (
+                                   <button 
+                                    onClick={() => handleCancelTransaction(tx)}
+                                    className="p-1.5 text-gray-500 hover:text-red-600 bg-gray-100 dark:bg-gray-700 rounded-full transition-colors"
+                                    title="Annuler (Marquer comme échoué)"
+                                   >
+                                       <Ban className="w-4 h-4" />
+                                   </button>
+                               )}
+                           </div>
                        </div>
-                   </div>
-                </td>
-              </tr>
-            ))}
+                    </td>
+                  </tr>
+                );
+            })}
             {filteredTransactions.length === 0 && (
                 <tr>
-                    <td colSpan={5} className="px-6 py-8 text-center text-gray-500">Aucune transaction trouvée pour ce critère.</td>
+                    <td colSpan={6} className="px-6 py-8 text-center text-gray-500">Aucune transaction trouvée pour ce critère.</td>
                 </tr>
             )}
           </tbody>
@@ -588,6 +615,27 @@ const Transactions = () => {
 
                {transactionType === 'simple' ? (
                    <div>
+                       <div className="mb-4">
+                           <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Type de revenu</label>
+                           <div className="relative mt-1">
+                                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                                    <Tag className="h-4 w-4 text-gray-400" />
+                                </div>
+                                <select
+                                    value={transactionCategory}
+                                    // @ts-ignore
+                                    onChange={e => setTransactionCategory(e.target.value)}
+                                    className="block w-full pl-10 rounded-md border-gray-300 shadow-sm p-2 border bg-white dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                                >
+                                    <option value="manual">Prestation / Service</option>
+                                    <option value="store">Vente Boutique</option>
+                                    <option value="access">Frais Accès (Site)</option>
+                                    <option value="quote">Règlement Devis</option>
+                                    <option value="other">Autre</option>
+                                </select>
+                           </div>
+                       </div>
+
                        <div className="mb-4">
                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Objet / Détails</label>
                            <div className="relative mt-1">

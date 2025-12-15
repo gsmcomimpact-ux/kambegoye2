@@ -1,5 +1,3 @@
-
-
 import React, { useState } from 'react';
 
 const CGU = () => {
@@ -25,7 +23,7 @@ const CGU = () => {
         </section>
 
         <section>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">3. Paiement</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">3. Paiement (Accès Contacts)</h2>
           <p>
             L'accès aux coordonnées complètes des ouvriers nécessite un paiement forfaitaire de 200 FCFA via Mobile Money. 
             Ce paiement donne accès à une liste de contacts pour une durée limitée. Ce montant est non remboursable, même si 
@@ -33,8 +31,23 @@ const CGU = () => {
           </p>
         </section>
 
+        <section className="bg-red-50 dark:bg-red-900/20 p-4 rounded-lg border border-red-100 dark:border-red-800">
+          <h2 className="text-xl font-bold text-red-700 dark:text-red-400 mb-2">4. Paiement des Prestations (Important)</h2>
+          <p className="font-bold mb-2">
+            ATTENTION : Ne payez jamais l'intégralité de la prestation à l'ouvrier avant la fin des travaux.
+          </p>
+          <p>
+            KAMBEGOYE décline toute responsabilité en cas de litige financier. Nous vous recommandons de :
+          </p>
+          <ul className="list-disc list-inside mt-2 ml-2 space-y-1">
+              <li>Ne verser d'acompte que si nécessaire (achat de matériel) et contre reçu.</li>
+              <li>Vérifier la qualité du travail avant de régler le solde final.</li>
+              <li>Privilégier les ouvriers "Vérifiés" sur la plateforme.</li>
+          </ul>
+        </section>
+
         <section>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">4. Données Personnelles</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">5. Données Personnelles</h2>
           <p>
             Les données collectées (numéro de téléphone, localisation) sont utilisées uniquement pour le fonctionnement du service. 
             Conformément à la réglementation, vous disposez d'un droit d'accès et de suppression de vos données sur simple demande à 
@@ -43,7 +56,7 @@ const CGU = () => {
         </section>
 
          <section>
-          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">5. Sécurité</h2>
+          <h2 className="text-xl font-bold text-gray-900 dark:text-white mb-2">6. Sécurité</h2>
           <p>
             Les pièces d'identité des ouvriers "Vérifiés" sont stockées de manière sécurisée et ne sont jamais partagées publiquement.
           </p>

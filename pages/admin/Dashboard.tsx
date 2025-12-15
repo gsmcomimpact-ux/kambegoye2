@@ -6,7 +6,7 @@ import autoTable from 'jspdf-autotable';
 import { db } from '../../services/db';
 import { Stats, Transaction } from '../../types';
 
-const COLORS = ['#ea580c', '#22c55e']; // Brand Colors
+const COLORS = ['#ea580c', '#22c55e', '#3b82f6', '#a855f7', '#f43f5e']; // Expanded Palette
 
 const Dashboard = () => {
   const [stats, setStats] = useState<Stats | null>(null);
@@ -48,11 +48,12 @@ const Dashboard = () => {
     doc.text(`Total Transactions: ${transactions.length}`, 14, 36);
     doc.text(`Revenu Total: ${transactions.reduce((acc, t) => acc + t.amount, 0)} FCFA`, 14, 42);
 
-    const tableColumn = ["ID", "Date", "Montant", "Méthode", "Statut"];
+    const tableColumn = ["ID", "Date", "Montant", "Type", "Méthode", "Statut"];
     const tableRows = transactions.map(tx => [
       tx.id.substring(0, 8),
       new Date(tx.date).toLocaleDateString() + ' ' + new Date(tx.date).toLocaleTimeString(),
       `${tx.amount} FCFA`,
+      tx.category || '-',
       tx.method,
       tx.status
     ]);
@@ -234,34 +235,34 @@ const Dashboard = () => {
 
       {/* Detailed Revenue Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Breakdown */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-          <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white flex items-center">
-            <TrendingUp className="w-5 h-5 mr-2" /> Détails Revenus
-          </h3>
-          <div className="space-y-4">
-             <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div>
-                   <p className="text-sm text-gray-500 dark:text-gray-400">Aujourd'hui</p>
-                   <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.revenueDaily} FCFA</p>
-                </div>
-                <button onClick={() => generatePDF('daily')} className="p-2 text-gray-400 hover:text-brand-600"><Download size={20}/></button>
-             </div>
-             <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div>
-                   <p className="text-sm text-gray-500 dark:text-gray-400">Cette Semaine (7 jours)</p>
-                   <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.revenueWeekly} FCFA</p>
-                </div>
-                <button onClick={() => generatePDF('weekly')} className="p-2 text-gray-400 hover:text-brand-600"><Download size={20}/></button>
-             </div>
-             <div className="flex justify-between items-center p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-                <div>
-                   <p className="text-sm text-gray-500 dark:text-gray-400">Ce Mois</p>
-                   <p className="text-xl font-bold text-gray-900 dark:text-white">{stats.revenueMonthly} FCFA</p>
-                </div>
-                <button onClick={() => generatePDF('monthly')} className="p-2 text-gray-400 hover:text-brand-600"><Download size={20}/></button>
-             </div>
-          </div>
+        {/* Revenue Breakdown by Source (New!) */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm flex flex-col items-center">
+           <div className="w-full flex justify-between items-center mb-4">
+             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Revenus par Source</h3>
+           </div>
+           
+           <div className="h-64 w-full">
+            <ResponsiveContainer width="100%" height="100%">
+                <PieChart>
+                    <Pie
+                        data={stats.revenueBySource}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        outerRadius={80}
+                        fill="#8884d8"
+                        dataKey="value"
+                        label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
+                    >
+                        {stats.revenueBySource.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                    </Pie>
+                    <Tooltip formatter={(value) => `${value} FCFA`} />
+                    <Legend verticalAlign="bottom" height={36}/>
+                </PieChart>
+            </ResponsiveContainer>
+           </div>
         </div>
 
         {/* Payment Methods Chart */}
@@ -270,7 +271,7 @@ const Dashboard = () => {
              <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Méthodes de Paiement</h3>
            </div>
            
-           <div className="h-56 w-full">
+           <div className="h-64 w-full">
             <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
                     <Pie
@@ -278,10 +279,10 @@ const Dashboard = () => {
                         cx="50%"
                         cy="50%"
                         labelLine={false}
-                        outerRadius={70}
+                        outerRadius={80}
                         fill="#8884d8"
                         dataKey="value"
-                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
                     >
                         {stats.paymentMethods.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />

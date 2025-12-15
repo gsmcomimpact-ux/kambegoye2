@@ -1,10 +1,9 @@
 
-
 export interface Country {
   id: string;
   name: string;
-  code: string; // e.g., 'NE', 'CI', 'SN'
-  currency: string; // e.g., 'XOF', 'GNF'
+  code: string;
+  currency: string;
 }
 
 export interface City {
@@ -18,13 +17,13 @@ export interface Worker {
   firstName: string;
   lastName: string;
   specialtyId: string;
-  countryId: string; // New
-  cityId: string;    // New
-  neighborhoodId?: string; // Made optional as not all cities might have mapped neighborhoods yet
+  countryId: string;
+  cityId: string;
+  neighborhoodId?: string;
   whatsapp: string;
   phone: string;
   photoUrl: string;
-  idCardUrl?: string; // Admin only
+  idCardUrl?: string;
   availability: 'available' | 'busy';
   rating: number;
   reviewCount: number;
@@ -33,7 +32,16 @@ export interface Worker {
   latitude?: number;
   longitude?: number;
   accountStatus: 'pending' | 'active' | 'rejected' | 'suspended';
-  views?: number; // New field for analytics
+  views?: number;
+}
+
+export interface Review {
+  id: string;
+  workerId: string;
+  authorName: string;
+  rating: number;
+  comment: string;
+  date: string;
 }
 
 export interface Product {
@@ -41,7 +49,7 @@ export interface Product {
   name: string;
   description: string;
   price: number;
-  category: string; // This now refers to the category name or ID
+  category: string;
   imageUrl: string;
   stock: number;
 }
@@ -60,25 +68,28 @@ export interface Specialty {
 export interface Neighborhood {
   id: string;
   name: string;
-  cityId: string; // Link to a city
-  latitude: number; // Added for GPS positioning
-  longitude: number; // Added for GPS positioning
+  cityId: string;
+  latitude: number;
+  longitude: number;
 }
+
+export type TransactionCategory = 'access' | 'store' | 'quote' | 'manual' | 'other';
 
 export interface Transaction {
   id: string;
   amount: number;
   date: string;
   status: 'success' | 'failed' | 'pending';
-  method: string; // Relaxed to string to support 'Espèces' etc.
-  userId: string; // Simulated IP or Session ID
-  clientPhone?: string; // Le numéro du client qui a payé
-  details?: string; // Liste des produits vendus ou description
+  method: string;
+  userId: string;
+  clientPhone?: string;
+  details?: string;
+  category: TransactionCategory; // Nouveau champ pour identifier la source
 }
 
 export interface ProjectRequest {
   id: string;
-  reference?: string; // e.g., PROJ-2024-001
+  reference?: string;
   clientName: string;
   clientPhone: string;
   title: string;
@@ -86,21 +97,21 @@ export interface ProjectRequest {
   category: string;
   countryId?: string; 
   cityId?: string;    
-  neighborhoodId?: string; // Added field
+  neighborhoodId?: string;
   budget?: string;
   deadline?: string;
   status: 'new' | 'contacted' | 'completed' | 'cancelled';
   date: string;
-  images?: string[]; // Added: Array of base64 image strings
+  images?: string[];
 }
 
 export interface MediaItem {
   id: string;
   type: 'image' | 'document';
   name: string;
-  data: string; // Base64 or URL
+  data: string;
   date: string;
-  relatedId?: string; // Worker ID or Project ID
+  relatedId?: string;
 }
 
 export interface QuoteItem {
@@ -113,8 +124,8 @@ export interface QuoteItem {
 
 export interface Quote {
   id: string;
-  number: string; // e.g., DEV-2024-001
-  projectRequestId?: string; // Link to the project request reference
+  number: string;
+  projectRequestId?: string;
   clientName: string;
   clientPhone: string;
   clientAddress?: string;
@@ -124,7 +135,7 @@ export interface Quote {
   totalAmount: number;
   status: 'draft' | 'sent' | 'accepted' | 'rejected';
   notes?: string;
-  paymentMethod?: string; // Méthode de paiement si accepté
+  paymentMethod?: string;
 }
 
 export interface AppEvent {
@@ -145,11 +156,12 @@ export interface Stats {
   revenueWeekly: number;
   revenueMonthly: number;
   paymentMethods: { name: string; value: number }[];
+  revenueBySource: { name: string; value: number }[]; // Nouveau champ stats
   recentTransactions: Transaction[];
   allTransactions: Transaction[];
   pendingProjects: number;
-  topWorkers: Worker[]; // New field for top stats
-  recentEvents: AppEvent[]; // Added for dashboard feed
+  topWorkers: Worker[];
+  recentEvents: AppEvent[];
 }
 
 export interface SystemSettings {
