@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag, MessageCircle, ArrowLeft, Download, FileText, CheckCircle } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, MessageCircle, ArrowLeft, Download, CheckCircle, AlertCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cartService } from '../services/cart';
@@ -97,50 +97,67 @@ const Cart = () => {
         return;
     }
 
-    // 1. Sauvegarde dans la base de données (Admin)
-    await db.createStoreOrder(cart, clientPhone, clientName, clientAddress);
+    try {
+        // 1. Sauvegarde dans la base de données (Admin)
+        await db.createStoreOrder(cart, clientPhone, clientName, clientAddress);
 
-    // 2. Préparation du message WhatsApp
-    const total = cartService.getTotal();
-    let message = `*NOUVELLE COMMANDE KAMBEGOYE*\n`;
-    message += `Client: ${clientName}\n`;
-    message += `Tél: ${clientPhone}\n`;
-    message += `Adresse: ${clientAddress}\n\n`;
-    message += `*Articles :*\n`;
-    
-    cart.forEach(item => {
-        message += `- ${item.quantity}x ${item.product.name} (${formatCurrency(item.product.price * item.quantity)})\n`;
-    });
-    
-    message += `\n*TOTAL: ${formatCurrency(total)}*\n\nJe souhaite valider cette commande et convenir de la livraison à mon adresse.`;
+        // 2. Préparation du message WhatsApp
+        const total = cartService.getTotal();
+        let message = `*NOUVELLE COMMANDE KAMBEGOYE*\n`;
+        message += `--------------------------------\n`;
+        message += `👤 Client: ${clientName}\n`;
+        message += `📞 Tél: ${clientPhone}\n`;
+        message += `📍 Adresse: ${clientAddress}\n`;
+        message += `--------------------------------\n`;
+        message += `*Articles :*\n`;
+        
+        cart.forEach(item => {
+            message += `- ${item.quantity}x ${item.product.name} (${formatCurrency(item.product.price * item.quantity)})\n`;
+        });
+        
+        message += `\n*TOTAL À PAYER: ${formatCurrency(total)}*\n`;
+        message += `--------------------------------\n`;
+        message += `Je souhaite valider cette commande. Merci de confirmer la livraison.`;
 
-    const adminPhone = '22797390569';
-    const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
-    
-    window.open(whatsappUrl, '_blank');
+        const adminPhone = '22797390569';
+        const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
+        
+        window.open(whatsappUrl, '_blank');
 
-    // 3. Vider le panier après la commande
-    cartService.clearCart();
-    setIsOrderSuccess(true);
+        // 3. Vider le panier après la commande
+        cartService.clearCart();
+        setIsOrderSuccess(true);
+    } catch (error) {
+        console.error("Erreur lors de la commande", error);
+        alert("Une erreur est survenue lors de l'enregistrement de la commande. Veuillez réessayer.");
+    }
   };
 
   if (cart.length === 0) {
     if (isOrderSuccess) {
         return (
             <div className="min-h-[60vh] flex flex-col items-center justify-center p-4 text-center animate-fade-in">
-                <div className="bg-green-100 text-green-600 p-6 rounded-full mb-6">
+                <div className="bg-green-100 text-green-600 p-6 rounded-full mb-6 shadow-sm">
                     <CheckCircle className="w-16 h-16" />
                 </div>
-                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Commande Initiée !</h2>
+                <h2 className="text-3xl font-bold text-gray-900 dark:text-white mb-2">Commande Validée !</h2>
                 <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-md mx-auto">
-                    Votre commande a été transmise. La discussion WhatsApp s'est ouverte pour finaliser la livraison et le paiement.
+                    Votre commande a été enregistrée avec succès. La discussion WhatsApp s'est ouverte pour finaliser les détails de la livraison.
                 </p>
-                <button 
-                  onClick={() => navigate('/boutique')}
-                  className="bg-brand-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-brand-700 transition-colors shadow-md"
-                >
-                  Retour à la boutique
-                </button>
+                <div className="flex flex-col gap-3 w-full max-w-xs">
+                    <button 
+                      onClick={() => navigate('/boutique')}
+                      className="bg-brand-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-brand-700 transition-colors shadow-md"
+                    >
+                      Retour à la boutique
+                    </button>
+                    <button 
+                      onClick={() => navigate('/')}
+                      className="text-brand-600 hover:text-brand-700 font-medium"
+                    >
+                      Retour à l'accueil
+                    </button>
+                </div>
             </div>
         );
     }
@@ -176,10 +193,13 @@ const Cart = () => {
       <div className="flex flex-col lg:flex-row gap-8">
         {/* Cart Items */}
         <div className="flex-1 bg-white dark:bg-gray-800 rounded-xl shadow-sm overflow-hidden h-fit">
+            <div className="p-4 border-b border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-700">
+                <span className="font-semibold text-gray-700 dark:text-gray-200">{cart.length} Articles</span>
+            </div>
             <div className="divide-y divide-gray-100 dark:divide-gray-700">
                 {cart.map((item) => (
                     <div key={item.product.id} className="p-4 flex items-center gap-4">
-                        <div className="w-20 h-20 bg-gray-100 rounded-md overflow-hidden flex-shrink-0">
+                        <div className="w-20 h-20 bg-gray-100 rounded-md overflow-hidden flex-shrink-0 border border-gray-200">
                             <img src={item.product.imageUrl} alt={item.product.name} className="w-full h-full object-cover" />
                         </div>
                         
@@ -191,7 +211,7 @@ const Cart = () => {
                         <div className="flex flex-col items-end gap-2">
                             <span className="font-bold text-gray-900 dark:text-white">{formatCurrency(item.product.price * item.quantity)}</span>
                             
-                            <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg p-1">
+                            <div className="flex items-center bg-gray-50 dark:bg-gray-700 rounded-lg p-1 border border-gray-200 dark:border-gray-600">
                                 <button 
                                     onClick={() => updateQuantity(item.product.id, -1)}
                                     className="p-1 hover:bg-white dark:hover:bg-gray-600 rounded text-gray-600 dark:text-gray-300"
@@ -213,37 +233,37 @@ const Cart = () => {
         </div>
 
         {/* Summary */}
-        <div className="w-full lg:w-80 h-fit">
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 sticky top-24">
-                <h3 className="text-lg font-bold text-gray-900 dark:text-white mb-4">Validation Commande</h3>
+        <div className="w-full lg:w-96 h-fit">
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 sticky top-24 border border-gray-100 dark:border-gray-700">
+                <h3 className="text-xl font-bold text-gray-900 dark:text-white mb-6">Validation Commande</h3>
                 
                 {/* Client Info Inputs */}
-                <div className="space-y-3 mb-6">
+                <div className="space-y-4 mb-6">
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Votre Nom complet</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom complet *</label>
                         <input 
                             type="text" 
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            className="w-full rounded-md border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-shadow"
                             placeholder="Ex: Moussa Ali"
                             value={clientName}
                             onChange={(e) => setClientName(e.target.value)}
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Votre Numéro (WhatsApp)</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Numéro WhatsApp *</label>
                         <input 
                             type="tel" 
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            className="w-full rounded-md border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-shadow"
                             placeholder="Ex: 90000000"
                             value={clientPhone}
                             onChange={(e) => setClientPhone(e.target.value)}
                         />
                     </div>
                     <div>
-                        <label className="block text-xs font-medium text-gray-500 dark:text-gray-400 mb-1">Adresse / Quartier</label>
+                        <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Adresse de livraison *</label>
                         <input 
                             type="text" 
-                            className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                            className="w-full rounded-md border-gray-300 shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-brand-500 dark:bg-gray-700 dark:border-gray-600 dark:text-white transition-shadow"
                             placeholder="Ex: Plateau, près de la pharmacie..."
                             value={clientAddress}
                             onChange={(e) => setClientAddress(e.target.value)}
@@ -251,13 +271,20 @@ const Cart = () => {
                     </div>
                 </div>
 
+                {!clientName || !clientPhone || !clientAddress ? (
+                    <div className="mb-4 bg-yellow-50 text-yellow-800 text-xs p-3 rounded-md flex items-start border border-yellow-200">
+                        <AlertCircle className="w-4 h-4 mr-2 flex-shrink-0" />
+                        Veuillez remplir vos informations pour valider la commande.
+                    </div>
+                ) : null}
+
                 <div className="flex justify-between items-center mb-2 text-gray-600 dark:text-gray-400">
                     <span>Sous-total</span>
                     <span>{formatCurrency(totalAmount)}</span>
                 </div>
                 <div className="flex justify-between items-center mb-4 text-gray-600 dark:text-gray-400">
                     <span>Livraison</span>
-                    <span className="text-sm italic">À définir</span>
+                    <span className="text-sm italic">À définir sur WhatsApp</span>
                 </div>
                 
                 <div className="border-t border-gray-100 dark:border-gray-700 pt-4 mb-6 flex justify-between items-center">
@@ -267,11 +294,10 @@ const Cart = () => {
 
                 <button 
                     onClick={handleWhatsAppOrder}
-                    disabled={!clientName || !clientPhone || !clientAddress}
-                    className="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 disabled:bg-gray-300 disabled:cursor-not-allowed text-white py-3 rounded-lg font-bold shadow-md transition-all mb-3"
+                    className="w-full flex items-center justify-center bg-green-500 hover:bg-green-600 text-white py-4 rounded-lg font-bold shadow-lg transform active:scale-95 transition-all mb-4"
                 >
-                    <MessageCircle className="w-5 h-5 mr-2" />
-                    Commander sur WhatsApp
+                    <MessageCircle className="w-6 h-6 mr-2" />
+                    Valider la commande (WhatsApp)
                 </button>
                 
                 <button 
@@ -284,7 +310,7 @@ const Cart = () => {
 
                 <button 
                     onClick={() => navigate('/boutique')}
-                    className="w-full text-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400"
+                    className="w-full text-center text-sm text-gray-500 hover:text-gray-700 dark:text-gray-400 hover:underline"
                 >
                     Continuer mes achats
                 </button>

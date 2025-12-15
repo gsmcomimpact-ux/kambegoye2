@@ -184,6 +184,7 @@ const Transactions = () => {
       doc.text(tx.clientPhone || "Client Comptoir", 14, 56);
 
       // -- PARSING DETAILS FOR TABLE --
+      // Ordre demandé : Désignation | Prix U. | Qté | Total
       const rows = [];
       if (tx.details && tx.details.includes('x ')) {
           const items = tx.details.split(', ');
@@ -191,18 +192,26 @@ const Transactions = () => {
               const regex = /^(\d+)x\s(.+)$/;
               const match = itemStr.match(regex);
               if (match) {
-                  rows.push([match[2], match[1], "-", "-"]); 
+                  // match[1] = Qty, match[2] = Name
+                  // Prix unitaire n'est pas stocké explicitement dans la string simple, on met "-" ou calcul si possible
+                  rows.push([match[2], "-", match[1], "-"]); 
               } else {
-                  rows.push([itemStr, "1", "-", "-"]);
+                  rows.push([itemStr, "-", "1", "-"]);
               }
           });
       } else {
-          rows.push([tx.details || "Article divers", "1", formatCurrency(tx.amount), formatCurrency(tx.amount)]);
+          // Cas simple (une seule ligne, on peut déduire le prix U)
+          rows.push([
+              tx.details || "Article divers", 
+              formatCurrency(tx.amount), 
+              "1", 
+              formatCurrency(tx.amount)
+          ]);
       }
 
       // -- TABLE --
       autoTable(doc, {
-          head: [["Désignation", "Qté", "Prix U.", "Total"]],
+          head: [["Désignation", "Prix U.", "Qté", "Total"]],
           body: rows,
           startY: 65,
           headStyles: { fillColor: tx.status === 'failed' ? [150, 150, 150] : [22, 163, 74] },
@@ -663,7 +672,6 @@ const Transactions = () => {
                    </div>
                ) : (
                    <div className="bg-gray-50 dark:bg-gray-700 p-4 rounded-md border border-gray-200 dark:border-gray-600">
-                       {/* Sales UI kept same as before */}
                        <h4 className="font-semibold text-gray-800 dark:text-white mb-2 flex items-center">
                            <ShoppingBag className="w-4 h-4 mr-2"/> Sélectionner Produits
                        </h4>
@@ -704,6 +712,7 @@ const Transactions = () => {
                                    <thead>
                                        <tr className="text-left text-gray-500">
                                            <th className="pb-2">Produit</th>
+                                           <th className="pb-2 text-right">Prix U.</th>
                                            <th className="pb-2 text-center">Qté</th>
                                            <th className="pb-2 text-right">Total</th>
                                            <th></th>
@@ -713,6 +722,7 @@ const Transactions = () => {
                                        {cart.map((item, idx) => (
                                            <tr key={idx} className="border-b border-gray-100 dark:border-gray-600 last:border-0">
                                                <td className="py-2 text-gray-900 dark:text-white">{item.product.name}</td>
+                                               <td className="py-2 text-right font-medium dark:text-gray-300">{formatCurrency(item.product.price)}</td>
                                                <td className="py-2">
                                                    <div className="flex items-center justify-center gap-2">
                                                        <button type="button" onClick={() => updateCartQuantity(idx, -1)} className="text-gray-400 hover:text-red-500"><MinusCircle className="w-4 h-4"/></button>
@@ -752,23 +762,22 @@ const Transactions = () => {
                    </select>
                </div>
 
-               {editingTransaction && (
-                   <div>
-                       <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut Transaction</label>
-                       <select 
-                          value={transactionStatus}
-                          // @ts-ignore
-                          onChange={e => setTransactionStatus(e.target.value)}
-                          className={`mt-1 block w-full rounded-md shadow-sm p-2 border dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
-                              transactionStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-800' : 'border-gray-300 bg-white'
-                          }`}
-                       >
-                           <option value="success">Succès / Validé</option>
-                           <option value="pending">En attente</option>
-                           <option value="failed">Annulé / Échoué</option>
-                       </select>
-                   </div>
-               )}
+               {/* Statut de transaction (Visible en édition ou création) */}
+               <div>
+                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">Statut Facture / Paiement</label>
+                   <select 
+                      value={transactionStatus}
+                      // @ts-ignore
+                      onChange={e => setTransactionStatus(e.target.value)}
+                      className={`mt-1 block w-full rounded-md shadow-sm p-2 border dark:bg-gray-700 dark:border-gray-600 dark:text-white ${
+                          transactionStatus === 'failed' ? 'border-red-300 bg-red-50 text-red-800' : 'border-gray-300 bg-white'
+                      }`}
+                   >
+                       <option value="success">Validée / Payée (Succès)</option>
+                       <option value="pending">En attente de paiement</option>
+                       <option value="failed">Annulée / Échouée</option>
+                   </select>
+               </div>
                
                {!editingTransaction && paymentMethod !== 'Espèces' && (
                    <div className="bg-blue-50 dark:bg-blue-900/30 p-3 rounded-md border border-blue-100 dark:border-blue-800">
