@@ -1,4 +1,4 @@
-import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute } from '../types';
+import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute, CartItem } from '../types';
 import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES } from '../constants';
 
 // Keys for LocalStorage
@@ -356,6 +356,30 @@ export const db = {
       transactions.unshift(newTx);
       localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
       return newTx;
+  },
+
+  createStoreOrder: async (cart: CartItem[], clientPhone: string, clientName: string, clientAddress: string) => {
+      const transactions: Transaction[] = safeParse(KEYS.TRANSACTIONS, []);
+      const totalAmount = cart.reduce((sum, item) => sum + (item.product.price * item.quantity), 0);
+      
+      const details = `${cart.map(item => `${item.quantity}x ${item.product.name}`).join(', ')} [Livraison: ${clientAddress}]`;
+      
+      const newTx: Transaction = {
+          id: `CMD-${Date.now().toString().slice(-6)}`,
+          amount: totalAmount,
+          date: new Date().toISOString(),
+          status: 'pending', // Commande WhatsApp = En attente de validation
+          method: 'WhatsApp',
+          userId: 'client',
+          clientPhone: `${clientName} (${clientPhone})`,
+          details: details,
+          category: 'store'
+      };
+      
+      transactions.unshift(newTx);
+      localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
+      await notifyAdmin('NOUVELLE COMMANDE', `Client: ${clientName} - ${totalAmount} F`);
+      return newTx.id;
   },
 
   updateTransaction: async (updatedTx: Transaction) => {

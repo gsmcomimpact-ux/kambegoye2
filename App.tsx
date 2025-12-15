@@ -1,4 +1,4 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
+import React, { ErrorInfo, ReactNode } from 'react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -12,6 +12,7 @@ import AccessContacts from './pages/AccessContacts';
 import Register from './pages/Register';
 import Shop from './pages/Shop';
 import ShopProduct from './pages/ShopProduct';
+import Cart from './pages/Cart';
 import ProjectRequestPage from './pages/ProjectRequest';
 import AdminLogin from './pages/admin/Login';
 import AdminLayout from './pages/admin/AdminLayout';
@@ -111,6 +112,7 @@ const App = () => {
             <Route path="inscription" element={<Register />} />
             <Route path="boutique" element={<Shop />} />
             <Route path="boutique/:id" element={<ShopProduct />} />
+            <Route path="panier" element={<Cart />} />
             <Route path="projet" element={<ProjectRequestPage />} />
             <Route path="cgu" element={<CGU />} />
             <Route path="mentions-legales" element={<Mentions />} />

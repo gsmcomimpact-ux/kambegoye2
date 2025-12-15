@@ -1,11 +1,12 @@
-
 import React, { useState, useEffect } from 'react';
 import { Link, useLocation } from 'react-router-dom';
-import { Menu, X, Hammer, Sun, Moon, UserPlus, ShoppingBag, FileText } from 'lucide-react';
+import { Menu, X, Hammer, Sun, Moon, UserPlus, ShoppingBag, FileText, ShoppingCart } from 'lucide-react';
+import { cartService } from '../services/cart';
 
 const Navbar = () => {
   const [isOpen, setIsOpen] = useState(false);
   const [isDark, setIsDark] = useState(false);
+  const [cartCount, setCartCount] = useState(0);
   const location = useLocation();
 
   useEffect(() => {
@@ -16,6 +17,14 @@ const Navbar = () => {
       setIsDark(false);
       document.documentElement.classList.remove('dark');
     }
+
+    // Initialize cart count
+    setCartCount(cartService.getCount());
+
+    // Listen for cart updates
+    const handleCartUpdate = () => setCartCount(cartService.getCount());
+    window.addEventListener('cart-updated', handleCartUpdate);
+    return () => window.removeEventListener('cart-updated', handleCartUpdate);
   }, []);
 
   const toggleTheme = () => {
@@ -66,6 +75,17 @@ const Navbar = () => {
                 {link.name}
               </Link>
             ))}
+            
+            {/* Cart Icon */}
+            <Link to="/panier" className="relative p-2 text-gray-600 dark:text-gray-300 hover:text-brand-600 transition-colors">
+                <ShoppingCart className="h-6 w-6" />
+                {cartCount > 0 && (
+                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-2 py-1 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
+                        {cartCount}
+                    </span>
+                )}
+            </Link>
+
             <button
               onClick={toggleTheme}
               className="p-2 rounded-full text-gray-500 hover:bg-gray-100 dark:text-gray-400 dark:hover:bg-gray-700"
@@ -74,8 +94,16 @@ const Navbar = () => {
             </button>
           </div>
 
-          {/* Mobile menu button */}
-          <div className="flex items-center md:hidden">
+          {/* Mobile menu button & Cart */}
+          <div className="flex items-center md:hidden gap-3">
+            <Link to="/panier" className="relative p-1 text-gray-600 dark:text-gray-300">
+                <ShoppingCart className="h-6 w-6" />
+                {cartCount > 0 && (
+                    <span className="absolute top-0 right-0 inline-flex items-center justify-center px-1.5 py-0.5 text-xs font-bold leading-none text-white transform translate-x-1/4 -translate-y-1/4 bg-red-600 rounded-full">
+                        {cartCount}
+                    </span>
+                )}
+            </Link>
             <button
               onClick={() => setIsOpen(!isOpen)}
               className="inline-flex items-center justify-center p-2 rounded-md text-gray-400 hover:text-gray-500 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-brand-500"

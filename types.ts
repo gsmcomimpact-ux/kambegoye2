@@ -45,6 +45,11 @@ export interface Product {
   stock: number;
 }
 
+export interface CartItem {
+  product: Product;
+  quantity: number;
+}
+
 export interface ProductCategory {
   id: string;
   name: string;

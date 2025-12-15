@@ -1,5 +1,3 @@
-
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, CheckCircle, Shield, MapPin } from 'lucide-react';
@@ -51,7 +49,7 @@ const Home = () => {
             Trouvez les meilleurs <span className="text-accent-500">ouvriers</span> à Niamey
           </h1>
           <p className="text-xl text-gray-300 text-center mb-10 max-w-2xl mx-auto">
-            Plombiers, électriciens, maçons... Des experts qualifiés près de chez vous dans la capitale.
+            Électriciens, plombiers, maçons... Des experts qualifiés près de chez vous dans la capitale.
           </p>
 
           <div className="max-w-3xl mx-auto bg-white rounded-lg shadow-xl p-3 md:p-4">
