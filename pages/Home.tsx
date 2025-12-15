@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { Search, CheckCircle, Shield, MapPin } from 'lucide-react';
+import { useNavigate, Link } from 'react-router-dom';
+import { Search, CheckCircle, Shield, MapPin, ArrowRight, Wrench } from 'lucide-react';
 import { db } from '../services/db';
 import { Specialty, Neighborhood } from '../types';
 
@@ -90,6 +90,50 @@ const Home = () => {
               </button>
             </form>
           </div>
+        </div>
+      </div>
+
+      {/* Partner Section - WADFOW */}
+      <div className="bg-white dark:bg-gray-900 py-12">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-r from-blue-900 to-slate-900">
+                {/* Decorative Elements */}
+                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-orange-500 opacity-20 blur-3xl"></div>
+                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 rounded-full bg-blue-500 opacity-20 blur-3xl"></div>
+
+                <div className="relative z-10 flex flex-col md:flex-row items-center p-8 md:p-12 gap-8">
+                    <div className="flex-1 text-center md:text-left">
+                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 text-sm font-bold mb-4 border border-orange-500/30">
+                            <Wrench className="w-4 h-4 mr-2" />
+                            PARTENAIRE OFFICIEL
+                        </div>
+                        <h2 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">
+                            WADFOW <span className="text-orange-500">TOOLS</span>
+                        </h2>
+                        <p className="text-lg text-gray-300 mb-8 max-w-xl mx-auto md:mx-0">
+                            Découvrez la puissance professionnelle. Perceuses, visseuses, et une gamme complète d'outillage électroportatif robuste disponible dès maintenant sur notre boutique.
+                        </p>
+                        <Link 
+                            to="/boutique" 
+                            className="inline-flex items-center px-8 py-4 text-lg font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 transition-all transform hover:scale-105 shadow-lg group"
+                        >
+                            Voir la collection
+                            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                        </Link>
+                    </div>
+                    <div className="w-full md:w-1/2 flex justify-center">
+                        <img 
+                            src="/wadfow.png" 
+                            onError={(e) => {
+                                // Fallback si l'image locale n'existe pas
+                                e.currentTarget.src = "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=800";
+                            }}
+                            alt="WADFOW Tools Collection" 
+                            className="rounded-xl shadow-2xl border-4 border-white/10 w-full max-w-md object-cover transform md:rotate-3 hover:rotate-0 transition-all duration-500"
+                        />
+                    </div>
+                </div>
+            </div>
         </div>
       </div>
       

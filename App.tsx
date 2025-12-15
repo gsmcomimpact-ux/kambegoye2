@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode, Component } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -43,10 +43,13 @@ interface ErrorBoundaryState {
 
 // Error Boundary Component
 class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
