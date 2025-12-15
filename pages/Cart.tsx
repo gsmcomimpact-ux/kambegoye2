@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Trash2, Plus, Minus, ShoppingBag, MessageCircle, ArrowLeft, Download, FileText } from 'lucide-react';
+import { Trash2, Plus, Minus, ShoppingBag, MessageCircle, ArrowLeft, Download, FileText, CheckCircle } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { cartService } from '../services/cart';
@@ -11,6 +11,7 @@ import { formatCurrency } from '../constants';
 const Cart = () => {
   const navigate = useNavigate();
   const [cart, setCart] = useState<CartItem[]>([]);
+  const [isOrderSuccess, setIsOrderSuccess] = useState(false);
   
   // Client Info State
   const [clientName, setClientName] = useState('');
@@ -117,9 +118,33 @@ const Cart = () => {
     const whatsappUrl = `https://wa.me/${adminPhone}?text=${encodeURIComponent(message)}`;
     
     window.open(whatsappUrl, '_blank');
+
+    // 3. Vider le panier après la commande
+    cartService.clearCart();
+    setIsOrderSuccess(true);
   };
 
   if (cart.length === 0) {
+    if (isOrderSuccess) {
+        return (
+            <div className="min-h-[60vh] flex flex-col items-center justify-center p-4 text-center animate-fade-in">
+                <div className="bg-green-100 text-green-600 p-6 rounded-full mb-6">
+                    <CheckCircle className="w-16 h-16" />
+                </div>
+                <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Commande Initiée !</h2>
+                <p className="text-gray-600 dark:text-gray-300 mb-8 max-w-md mx-auto">
+                    Votre commande a été transmise. La discussion WhatsApp s'est ouverte pour finaliser la livraison et le paiement.
+                </p>
+                <button 
+                  onClick={() => navigate('/boutique')}
+                  className="bg-brand-600 text-white px-8 py-3 rounded-lg font-medium hover:bg-brand-700 transition-colors shadow-md"
+                >
+                  Retour à la boutique
+                </button>
+            </div>
+        );
+    }
+
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center p-4">
         <div className="bg-gray-100 dark:bg-gray-800 p-6 rounded-full mb-4">
