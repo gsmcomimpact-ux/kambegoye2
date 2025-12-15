@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -26,8 +26,10 @@ import AdminSpecialties from './pages/admin/Specialties';
 import AdminProjectRequests from './pages/admin/ProjectRequests';
 import AdminMediaLibrary from './pages/admin/MediaLibrary';
 import AdminQuotes from './pages/admin/Quotes';
+import AdminDisputes from './pages/admin/Disputes';
 import CGU from './pages/Legal/CGU';
 import Mentions from './pages/Legal/Mentions';
+import Reclamation from './pages/Reclamation';
 
 interface ErrorBoundaryProps {
   children?: ReactNode;
@@ -39,14 +41,11 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  constructor(props: ErrorBoundaryProps) {
-    super(props);
-    this.state = {
-      hasError: false,
-      error: null
-    };
-  }
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -68,7 +67,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
             </div>
             <button 
               onClick={() => window.location.reload()}
-              className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors w-full"
+              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors w-full"
             >
               Recharger la page
             </button>
@@ -115,6 +114,7 @@ const App = () => {
             <Route path="projet" element={<ProjectRequestPage />} />
             <Route path="cgu" element={<CGU />} />
             <Route path="mentions-legales" element={<Mentions />} />
+            <Route path="reclamation" element={<Reclamation />} />
           </Route>
 
           {/* Admin Routes */}
@@ -126,6 +126,7 @@ const App = () => {
             <Route path="produits" element={<AdminProducts />} />
             <Route path="categories-produits" element={<AdminProductCategories />} />
             <Route path="projets" element={<AdminProjectRequests />} />
+            <Route path="litiges" element={<AdminDisputes />} />
             <Route path="devis" element={<AdminQuotes />} />
             <Route path="factures" element={<AdminTransactions />} />
             <Route path="paiements" element={<AdminTransactions />} />

@@ -1,4 +1,4 @@
-import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Review } from '../types';
+import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute } from '../types';
 import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES } from '../constants';
 
 // Keys for LocalStorage
@@ -17,7 +17,7 @@ const KEYS = {
   ADMIN_AUTH: 'kambegoye_admin_auth',
   MEDIA: 'kambegoye_media',
   QUOTES: 'kambegoye_quotes',
-  REVIEWS: 'kambegoye_reviews' // New Key
+  DISPUTES: 'kambegoye_disputes'
 };
 
 const SESSION_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
@@ -131,7 +131,7 @@ const initDB = () => {
     if (!localStorage.getItem(KEYS.ADMIN_AUTH)) localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify({ username: 'admin', password: 'admin' }));
     if (!localStorage.getItem(KEYS.MEDIA)) localStorage.setItem(KEYS.MEDIA, JSON.stringify([]));
     if (!localStorage.getItem(KEYS.QUOTES)) localStorage.setItem(KEYS.QUOTES, JSON.stringify([]));
-    if (!localStorage.getItem(KEYS.REVIEWS)) localStorage.setItem(KEYS.REVIEWS, JSON.stringify([]));
+    if (!localStorage.getItem(KEYS.DISPUTES)) localStorage.setItem(KEYS.DISPUTES, JSON.stringify([]));
 
   } catch (error) {
     console.error("Critical DB Init Error", error);
@@ -257,53 +257,6 @@ export const db = {
     let workers: Worker[] = safeParse(KEYS.WORKERS, []);
     workers = workers.filter(w => w.id !== id);
     localStorage.setItem(KEYS.WORKERS, JSON.stringify(workers));
-  },
-
-  // --- REVIEWS LOGIC ---
-
-  getWorkerReviews: async (workerId: string) => {
-      await delay(200);
-      const reviews: Review[] = safeParse(KEYS.REVIEWS, []);
-      // Return reviews filtered by workerId, sorted by date desc
-      return reviews
-        .filter(r => r.workerId === workerId)
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  },
-
-  addReview: async (workerId: string, reviewData: { authorName: string, rating: number, comment: string }) => {
-      await delay(400);
-      const reviews: Review[] = safeParse(KEYS.REVIEWS, []);
-      const newReview: Review = {
-          id: generateUUID(),
-          workerId: workerId,
-          authorName: reviewData.authorName,
-          rating: reviewData.rating,
-          comment: reviewData.comment,
-          date: new Date().toISOString()
-      };
-      
-      reviews.unshift(newReview);
-      localStorage.setItem(KEYS.REVIEWS, JSON.stringify(reviews));
-
-      // Update Worker Statistics
-      const workers: Worker[] = safeParse(KEYS.WORKERS, []);
-      const workerIndex = workers.findIndex(w => w.id === workerId);
-      if (workerIndex >= 0) {
-          const w = workers[workerIndex];
-          const oldRating = w.rating || 0;
-          const oldCount = w.reviewCount || 0;
-          
-          // Calculate new average
-          const newCount = oldCount + 1;
-          const newRating = ((oldRating * oldCount) + reviewData.rating) / newCount;
-          
-          workers[workerIndex].rating = parseFloat(newRating.toFixed(1));
-          workers[workerIndex].reviewCount = newCount;
-          
-          localStorage.setItem(KEYS.WORKERS, JSON.stringify(workers));
-      }
-
-      return newReview;
   },
 
   getSpecialties: async () => {
@@ -475,6 +428,53 @@ export const db = {
       return await db.finalizeTransaction(reference);
   },
 
+  // --- RECLAMATION / DISPUTES ---
+
+  saveDispute: async (disputeData: any): Promise<Dispute> => {
+      await delay(400);
+      const disputes: Dispute[] = safeParse(KEYS.DISPUTES, []);
+      const ticketNumber = `LIT-${Date.now().toString().slice(-6)}`;
+      
+      const newDispute: Dispute = {
+          id: generateUUID(),
+          ticketNumber: ticketNumber,
+          clientName: disputeData.clientName,
+          clientPhone: disputeData.clientPhone,
+          workerName: disputeData.workerName,
+          reason: disputeData.reason,
+          description: disputeData.description,
+          date: new Date().toISOString(),
+          status: 'new'
+      };
+
+      disputes.unshift(newDispute);
+      localStorage.setItem(KEYS.DISPUTES, JSON.stringify(disputes));
+      await notifyAdmin('NOUVELLE RECLAMATION', `Ticket: ${ticketNumber} - ${newDispute.clientName}`);
+      return newDispute;
+  },
+
+  getDisputes: async () => {
+      await delay(300);
+      return safeParse(KEYS.DISPUTES, []);
+  },
+
+  updateDispute: async (updatedDispute: Dispute) => {
+      await delay(300);
+      const disputes: Dispute[] = safeParse(KEYS.DISPUTES, []);
+      const index = disputes.findIndex(d => d.id === updatedDispute.id);
+      if (index >= 0) {
+          disputes[index] = updatedDispute;
+          localStorage.setItem(KEYS.DISPUTES, JSON.stringify(disputes));
+      }
+  },
+
+  deleteDispute: async (id: string) => {
+      await delay(300);
+      let disputes: Dispute[] = safeParse(KEYS.DISPUTES, []);
+      disputes = disputes.filter(d => d.id !== id);
+      localStorage.setItem(KEYS.DISPUTES, JSON.stringify(disputes));
+  },
+
   // ... (Session/Time methods remain unchanged) ...
   hasPaid: () => {
       const sessionStartStr = sessionStorage.getItem(KEYS.PAID_SESSION_TIMESTAMP);
@@ -511,6 +511,7 @@ export const db = {
     const projectRequests: ProjectRequest[] = safeParse(KEYS.PROJECT_REQUESTS, []);
     const quotes: Quote[] = safeParse(KEYS.QUOTES, []);
     const media: MediaItem[] = safeParse(KEYS.MEDIA, []);
+    const disputes: Dispute[] = safeParse(KEYS.DISPUTES, []);
     
     const now = new Date();
     const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
@@ -576,6 +577,7 @@ export const db = {
     projectRequests.forEach(p => events.push({ id: p.id, type: 'project', title: `Projet: ${p.title}`, description: `Client: ${p.clientName}`, date: p.date, status: p.status }));
     quotes.forEach(q => events.push({ id: q.id, type: 'quote', title: `Devis: ${q.number}`, description: `Client: ${q.clientName} - ${q.totalAmount} F`, date: q.date, amount: q.totalAmount, status: q.status }));
     media.forEach(m => events.push({ id: m.id, type: 'media', title: `Média: ${m.name}`, description: 'Fichier uploadé', date: m.date }));
+    disputes.forEach(d => events.push({ id: d.id, type: 'dispute', title: `Litige: ${d.ticketNumber}`, description: `Client: ${d.clientName} (vs ${d.workerName})`, date: d.date, status: d.status }));
 
     events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
@@ -606,7 +608,7 @@ export const db = {
       products: safeParse(KEYS.PRODUCTS, []),
       categories: safeParse(KEYS.PRODUCT_CATEGORIES, []),
       quotes: safeParse(KEYS.QUOTES, []),
-      reviews: safeParse(KEYS.REVIEWS, [])
+      disputes: safeParse(KEYS.DISPUTES, [])
     };
   },
   importData: async (data: any) => {
@@ -618,7 +620,7 @@ export const db = {
       if (data.products) localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(data.products));
       if (data.categories) localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(data.categories));
       if (data.quotes) localStorage.setItem(KEYS.QUOTES, JSON.stringify(data.quotes));
-      if (data.reviews) localStorage.setItem(KEYS.REVIEWS, JSON.stringify(data.reviews));
+      if (data.disputes) localStorage.setItem(KEYS.DISPUTES, JSON.stringify(data.disputes));
       return true;
     } catch (e) {
       return false;

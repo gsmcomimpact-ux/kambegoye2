@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Wallet, LogOut, Home, Database, Settings, ShoppingBag, Tags, FileText, Image, FileSpreadsheet, Receipt, Briefcase } from 'lucide-react';
+import { LayoutDashboard, Users, Wallet, LogOut, Home, Database, Settings, ShoppingBag, Tags, FileText, Image, FileSpreadsheet, Receipt, Briefcase, AlertTriangle } from 'lucide-react';
 
 const AdminLayout = () => {
   const location = useLocation();
@@ -20,6 +20,7 @@ const AdminLayout = () => {
   const navItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Projets / Demandes', path: '/admin/projets', icon: FileText },
+    { name: 'Litiges / Réclamations', path: '/admin/litiges', icon: AlertTriangle },
     { name: 'Générateur Devis', path: '/admin/devis', icon: FileSpreadsheet },
     { name: 'Ouvriers', path: '/admin/ouvriers', icon: Users },
     { name: 'Métiers (Spécialités)', path: '/admin/specialties', icon: Briefcase },

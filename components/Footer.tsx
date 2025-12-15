@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, AlertTriangle } from 'lucide-react';
 
 const Footer = () => {
   return (
@@ -21,6 +21,12 @@ const Footer = () => {
               <li><Link to="/admin/login" className="text-gray-400 hover:text-white">Espace Professionnel</Link></li>
               <li><Link to="/cgu" className="text-gray-400 hover:text-white">Conditions Générales (CGU)</Link></li>
               <li><Link to="/mentions-legales" className="text-gray-400 hover:text-white">Mentions Légales</Link></li>
+              <li>
+                  <Link to="/reclamation" className="text-gray-400 hover:text-red-400 flex items-center">
+                    <AlertTriangle className="w-3 h-3 mr-1" />
+                    Réclamation / Litige
+                  </Link>
+              </li>
             </ul>
           </div>
           <div>

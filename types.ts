@@ -35,15 +35,6 @@ export interface Worker {
   views?: number;
 }
 
-export interface Review {
-  id: string;
-  workerId: string;
-  authorName: string;
-  rating: number;
-  comment: string;
-  date: string;
-}
-
 export interface Product {
   id: string;
   name: string;
@@ -84,7 +75,7 @@ export interface Transaction {
   userId: string;
   clientPhone?: string;
   details?: string;
-  category: TransactionCategory; // Nouveau champ pour identifier la source
+  category: TransactionCategory; 
 }
 
 export interface ProjectRequest {
@@ -138,9 +129,21 @@ export interface Quote {
   paymentMethod?: string;
 }
 
+export interface Dispute {
+  id: string;
+  ticketNumber: string;
+  clientName: string;
+  clientPhone: string;
+  workerName: string; // Nom de l'ouvrier concerné
+  reason: string;
+  description: string;
+  date: string;
+  status: 'new' | 'investigating' | 'resolved' | 'closed';
+}
+
 export interface AppEvent {
   id: string;
-  type: 'transaction' | 'project' | 'quote' | 'media';
+  type: 'transaction' | 'project' | 'quote' | 'media' | 'dispute';
   title: string;
   description: string;
   date: string;
@@ -156,7 +159,7 @@ export interface Stats {
   revenueWeekly: number;
   revenueMonthly: number;
   paymentMethods: { name: string; value: number }[];
-  revenueBySource: { name: string; value: number }[]; // Nouveau champ stats
+  revenueBySource: { name: string; value: number }[];
   recentTransactions: Transaction[];
   allTransactions: Transaction[];
   pendingProjects: number;
