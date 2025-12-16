@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Outlet, Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Users, Wallet, LogOut, Home, Database, Settings, ShoppingBag, Tags, FileText, Image, FileSpreadsheet, Receipt, Briefcase, AlertTriangle, Handshake, Menu, X } from 'lucide-react';
+import { LayoutDashboard, Users, Wallet, LogOut, Home, Database, Settings, ShoppingBag, Tags, FileText, Image, FileSpreadsheet, Receipt, Briefcase, AlertTriangle, Handshake, Menu, X, UserCog, Shield } from 'lucide-react';
 
 const AdminLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  // Initialize role directly from storage to avoid redirect flickers
+  const [userRole, setUserRole] = useState<string>(localStorage.getItem('kambegoye_admin_role') || 'manager');
 
   useEffect(() => {
     if (!localStorage.getItem('kambegoye_admin_token')) {
@@ -20,10 +22,13 @@ const AdminLayout = () => {
 
   const handleLogout = () => {
     localStorage.removeItem('kambegoye_admin_token');
+    localStorage.removeItem('kambegoye_admin_role');
     navigate('/admin/login');
   };
 
-  const navItems = [
+  // Define Nav items with allowed roles
+  // If allowedRoles is undefined, it's accessible by everyone (admin + manager)
+  const allNavItems = [
     { name: 'Dashboard', path: '/admin', icon: LayoutDashboard },
     { name: 'Projets / Demandes', path: '/admin/projets', icon: FileText },
     { name: 'Litiges / Réclamations', path: '/admin/litiges', icon: AlertTriangle },
@@ -36,19 +41,37 @@ const AdminLayout = () => {
     { name: 'Factures', path: '/admin/factures', icon: Receipt },
     { name: 'Paiements', path: '/admin/paiements', icon: Wallet },
     { name: 'Médiathèque', path: '/admin/media', icon: Image },
-    { name: 'Données', path: '/admin/data', icon: Database },
-    { name: 'Paramètres', path: '/admin/settings', icon: Settings },
+    // Restricted Items (Admin Only)
+    { name: 'Utilisateurs', path: '/admin/users', icon: Shield, allowedRoles: ['admin'] },
+    { name: 'Données', path: '/admin/data', icon: Database, allowedRoles: ['admin'] },
+    { name: 'Paramètres', path: '/admin/settings', icon: Settings, allowedRoles: ['admin'] },
   ];
+
+  // Redirect if user tries to access a restricted route manually
+  useEffect(() => {
+      const currentItem = allNavItems.find(item => item.path === location.pathname);
+      if (currentItem && currentItem.allowedRoles && !currentItem.allowedRoles.includes(userRole)) {
+          navigate('/admin'); // Redirect unauthorized access to dashboard
+      }
+  }, [location.pathname, userRole, navigate]);
+
+  const visibleNavItems = allNavItems.filter(item => {
+      if (!item.allowedRoles) return true;
+      return item.allowedRoles.includes(userRole);
+  });
 
   const SidebarContent = () => (
     <>
       <div className="p-6">
         <h1 className="text-2xl font-bold text-brand-600">KAMBEGOYE</h1>
-        <p className="text-xs text-gray-500">Administration</p>
+        <div className="flex items-center mt-1">
+            <UserCog className="w-3 h-3 text-gray-400 mr-1" />
+            <p className="text-xs text-gray-500 uppercase tracking-wide">{userRole === 'admin' ? 'Administrateur' : 'Manager'}</p>
+        </div>
       </div>
       
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => (
+        {visibleNavItems.map((item) => (
           <Link
             key={item.path}
             to={item.path}

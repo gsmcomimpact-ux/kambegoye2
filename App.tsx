@@ -1,4 +1,4 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -29,6 +29,7 @@ import AdminMediaLibrary from './pages/admin/MediaLibrary';
 import AdminQuotes from './pages/admin/Quotes';
 import AdminDisputes from './pages/admin/Disputes';
 import AdminPartners from './pages/admin/Partners';
+import AdminUsers from './pages/admin/Users';
 import CGU from './pages/Legal/CGU';
 import Mentions from './pages/Legal/Mentions';
 import Reclamation from './pages/Reclamation';
@@ -43,11 +44,14 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  };
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  constructor(props: ErrorBoundaryProps) {
+    super(props);
+    this.state = {
+      hasError: false,
+      error: null
+    };
+  }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
     return { hasError: true, error };
@@ -135,6 +139,7 @@ const App = () => {
             <Route path="factures" element={<AdminTransactions />} />
             <Route path="paiements" element={<AdminTransactions />} />
             <Route path="media" element={<AdminMediaLibrary />} />
+            <Route path="users" element={<AdminUsers />} />
             <Route path="data" element={<AdminDataManagement />} />
             <Route path="settings" element={<AdminSettings />} />
           </Route>

@@ -16,10 +16,12 @@ const Login = () => {
     setError('');
 
     try {
-      const isValid = await db.verifyAdmin(username, password);
+      const result = await db.verifyAdmin(username, password);
       
-      if (isValid) {
+      if (result.success) {
         localStorage.setItem('kambegoye_admin_token', 'valid');
+        // Store user role (admin or manager)
+        localStorage.setItem('kambegoye_admin_role', result.role || 'manager');
         navigate('/admin');
       } else {
         setError('Identifiants incorrects.');

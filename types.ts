@@ -156,6 +156,15 @@ export interface Partner {
   displayOrder: number;
 }
 
+export interface AdminUser {
+  id: string;
+  username: string;
+  password?: string; // Optional when retrieving lists to not expose it easily
+  name: string;
+  role: 'admin' | 'manager';
+  lastLogin?: string;
+}
+
 export interface AppEvent {
   id: string;
   type: 'transaction' | 'project' | 'quote' | 'media' | 'dispute';

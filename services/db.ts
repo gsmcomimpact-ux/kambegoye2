@@ -1,4 +1,4 @@
-import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute, CartItem, Partner } from '../types';
+import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute, CartItem, Partner, AdminUser } from '../types';
 import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES, INITIAL_PARTNERS } from '../constants';
 
 // Keys for LocalStorage
@@ -14,7 +14,7 @@ const KEYS = {
   PROJECT_REQUESTS: 'kambegoye_project_requests',
   PAID_SESSION_TIMESTAMP: 'kambegoye_paid_session_ts',
   SETTINGS: 'kambegoye_settings',
-  ADMIN_AUTH: 'kambegoye_admin_auth',
+  ADMIN_USERS: 'kambegoye_admin_users', // NEW KEY FOR MULTI USER
   MEDIA: 'kambegoye_media',
   QUOTES: 'kambegoye_quotes',
   DISPUTES: 'kambegoye_disputes',
@@ -128,9 +128,17 @@ const initDB = () => {
       localStorage.setItem(KEYS.TRANSACTIONS, JSON.stringify(transactions));
     }
     
+    // 3. ADMIN USERS INITIALIZATION
+    if (!localStorage.getItem(KEYS.ADMIN_USERS)) {
+        const defaultAdmins: AdminUser[] = [
+            { id: '1', username: 'admin', password: 'admin', role: 'admin', name: 'Super Admin' },
+            { id: '2', username: 'manager', password: 'manager', role: 'manager', name: 'Manager Principal' }
+        ];
+        localStorage.setItem(KEYS.ADMIN_USERS, JSON.stringify(defaultAdmins));
+    }
+    
     if (!localStorage.getItem(KEYS.PROJECT_REQUESTS)) localStorage.setItem(KEYS.PROJECT_REQUESTS, JSON.stringify([]));
     if (!localStorage.getItem(KEYS.SETTINGS)) localStorage.setItem(KEYS.SETTINGS, JSON.stringify({ consultationPrice: PAYMENT_AMOUNT }));
-    if (!localStorage.getItem(KEYS.ADMIN_AUTH)) localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify({ username: 'admin', password: 'admin' }));
     if (!localStorage.getItem(KEYS.MEDIA)) localStorage.setItem(KEYS.MEDIA, JSON.stringify([]));
     if (!localStorage.getItem(KEYS.QUOTES)) localStorage.setItem(KEYS.QUOTES, JSON.stringify([]));
     if (!localStorage.getItem(KEYS.DISPUTES)) localStorage.setItem(KEYS.DISPUTES, JSON.stringify([]));
@@ -320,17 +328,76 @@ export const db = {
     localStorage.setItem(KEYS.SETTINGS, JSON.stringify(updated));
   },
 
-  verifyAdmin: async (u: string, p: string) => {
+  // --- ADMIN AUTH & MANAGEMENT ---
+
+  verifyAdmin: async (u: string, p: string): Promise<{ success: boolean; role?: 'admin' | 'manager' }> => {
     await delay(500);
-    const auth = safeParse(KEYS.ADMIN_AUTH, { username: 'admin', password: 'admin' });
-    return u === auth.username && p === auth.password;
+    const users: AdminUser[] = safeParse(KEYS.ADMIN_USERS, []);
+    
+    const user = users.find(user => user.username === u && user.password === p);
+    
+    if (user) {
+        // Update last login
+        user.lastLogin = new Date().toISOString();
+        const updatedUsers = users.map(us => us.id === user.id ? user : us);
+        localStorage.setItem(KEYS.ADMIN_USERS, JSON.stringify(updatedUsers));
+        
+        return { success: true, role: user.role };
+    }
+
+    return { success: false };
+  },
+
+  getAdminUsers: async (): Promise<AdminUser[]> => {
+      await delay(200);
+      return safeParse(KEYS.ADMIN_USERS, []);
+  },
+
+  saveAdminUser: async (user: AdminUser) => {
+      await delay(300);
+      const users: AdminUser[] = safeParse(KEYS.ADMIN_USERS, []);
+      const index = users.findIndex(u => u.id === user.id);
+      
+      if (index >= 0) {
+          // Update existing
+          // If password empty during update, keep old password
+          if (!user.password) {
+              user.password = users[index].password;
+          }
+          users[index] = user;
+      } else {
+          // Create new
+          users.push(user);
+      }
+      localStorage.setItem(KEYS.ADMIN_USERS, JSON.stringify(users));
+  },
+
+  deleteAdminUser: async (id: string) => {
+      await delay(300);
+      let users: AdminUser[] = safeParse(KEYS.ADMIN_USERS, []);
+      // Prevent deleting the last admin
+      const userToDelete = users.find(u => u.id === id);
+      const adminCount = users.filter(u => u.role === 'admin').length;
+      
+      if (userToDelete?.role === 'admin' && adminCount <= 1) {
+          throw new Error("Impossible de supprimer le dernier administrateur.");
+      }
+
+      users = users.filter(u => u.id !== id);
+      localStorage.setItem(KEYS.ADMIN_USERS, JSON.stringify(users));
   },
 
   updateAdminPassword: async (newPassword: string) => {
+    // Deprecated for multi-user, but kept for compatibility with Settings page single-user flow if needed.
+    // Ideally Settings page should update the *current* user.
+    // For now, we update the first admin found or specific 'admin' user.
     await delay(300);
-    const auth = safeParse(KEYS.ADMIN_AUTH, { username: 'admin', password: 'admin' });
-    auth.password = newPassword;
-    localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify(auth));
+    const users: AdminUser[] = safeParse(KEYS.ADMIN_USERS, []);
+    const adminIndex = users.findIndex(u => u.username === 'admin');
+    if (adminIndex >= 0) {
+        users[adminIndex].password = newPassword;
+        localStorage.setItem(KEYS.ADMIN_USERS, JSON.stringify(users));
+    }
   },
 
   // --- PARTNERS LOGIC ---
