@@ -1,4 +1,4 @@
-import { Specialty, Neighborhood, Worker, Product, ProductCategory, Country, City } from './types';
+import { Specialty, Neighborhood, Worker, Product, ProductCategory, Country, City, Partner } from './types';
 
 export const PAYMENT_AMOUNT = 200;
 
@@ -33,6 +33,18 @@ export const INITIAL_COUNTRIES: Country[] = [
 
 export const INITIAL_CITIES: City[] = [
   { id: 'NE_NIA', name: 'Niamey', countryId: 'NE' }
+];
+
+export const INITIAL_PARTNERS: Partner[] = [
+  {
+    id: 'wadfow_official',
+    name: 'WADFOW TOOLS',
+    description: "Découvrez la puissance professionnelle. Perceuses, visseuses, et une gamme complète d'outillage électroportatif robuste disponible dès maintenant sur notre boutique.",
+    imageUrl: '/wadfow.png',
+    linkUrl: '/boutique',
+    isActive: true,
+    displayOrder: 1
+  }
 ];
 
 export const INITIAL_PRODUCT_CATEGORIES: ProductCategory[] = [

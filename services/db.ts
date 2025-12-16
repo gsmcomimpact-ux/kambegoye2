@@ -1,5 +1,5 @@
-import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute, CartItem } from '../types';
-import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES } from '../constants';
+import { Worker, Specialty, Neighborhood, Transaction, Stats, SystemSettings, Product, ProductCategory, ProjectRequest, MediaItem, Quote, Country, City, AppEvent, TransactionCategory, Dispute, CartItem, Partner } from '../types';
+import { INITIAL_WORKERS, INITIAL_SPECIALTIES, INITIAL_NEIGHBORHOODS, INITIAL_PRODUCTS, INITIAL_PRODUCT_CATEGORIES, PAYMENT_AMOUNT, IPAY_CONFIG, INITIAL_COUNTRIES, INITIAL_CITIES, INITIAL_PARTNERS } from '../constants';
 
 // Keys for LocalStorage
 const KEYS = {
@@ -17,7 +17,8 @@ const KEYS = {
   ADMIN_AUTH: 'kambegoye_admin_auth',
   MEDIA: 'kambegoye_media',
   QUOTES: 'kambegoye_quotes',
-  DISPUTES: 'kambegoye_disputes'
+  DISPUTES: 'kambegoye_disputes',
+  PARTNERS: 'kambegoye_partners'
 };
 
 const SESSION_DURATION_MS = 5 * 60 * 1000; // 5 Minutes
@@ -102,6 +103,7 @@ const initDB = () => {
     if (!localStorage.getItem(KEYS.NEIGHBORHOODS)) localStorage.setItem(KEYS.NEIGHBORHOODS, JSON.stringify(INITIAL_NEIGHBORHOODS));
     if (!localStorage.getItem(KEYS.PRODUCTS)) localStorage.setItem(KEYS.PRODUCTS, JSON.stringify(INITIAL_PRODUCTS));
     if (!localStorage.getItem(KEYS.PRODUCT_CATEGORIES)) localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(INITIAL_PRODUCT_CATEGORIES));
+    if (!localStorage.getItem(KEYS.PARTNERS)) localStorage.setItem(KEYS.PARTNERS, JSON.stringify(INITIAL_PARTNERS));
 
     // 2. TRANSACTIONS INITIALIZATION (AUTO-SEEDING)
     if (!localStorage.getItem(KEYS.TRANSACTIONS)) {
@@ -329,6 +331,31 @@ export const db = {
     const auth = safeParse(KEYS.ADMIN_AUTH, { username: 'admin', password: 'admin' });
     auth.password = newPassword;
     localStorage.setItem(KEYS.ADMIN_AUTH, JSON.stringify(auth));
+  },
+
+  // --- PARTNERS LOGIC ---
+  getPartners: async () => {
+    await delay(100);
+    return safeParse(KEYS.PARTNERS, INITIAL_PARTNERS);
+  },
+
+  savePartner: async (partner: Partner) => {
+    await delay(300);
+    const partners: Partner[] = safeParse(KEYS.PARTNERS, INITIAL_PARTNERS);
+    const index = partners.findIndex(p => p.id === partner.id);
+    if (index >= 0) {
+      partners[index] = partner;
+    } else {
+      partners.push(partner);
+    }
+    localStorage.setItem(KEYS.PARTNERS, JSON.stringify(partners));
+  },
+
+  deletePartner: async (id: string) => {
+    await delay(300);
+    let partners: Partner[] = safeParse(KEYS.PARTNERS, INITIAL_PARTNERS);
+    partners = partners.filter(p => p.id !== id);
+    localStorage.setItem(KEYS.PARTNERS, JSON.stringify(partners));
   },
 
   // --- TRANSACTION LOGIC UPDATED ---
@@ -632,7 +659,8 @@ export const db = {
       products: safeParse(KEYS.PRODUCTS, []),
       categories: safeParse(KEYS.PRODUCT_CATEGORIES, []),
       quotes: safeParse(KEYS.QUOTES, []),
-      disputes: safeParse(KEYS.DISPUTES, [])
+      disputes: safeParse(KEYS.DISPUTES, []),
+      partners: safeParse(KEYS.PARTNERS, [])
     };
   },
   importData: async (data: any) => {
@@ -645,6 +673,7 @@ export const db = {
       if (data.categories) localStorage.setItem(KEYS.PRODUCT_CATEGORIES, JSON.stringify(data.categories));
       if (data.quotes) localStorage.setItem(KEYS.QUOTES, JSON.stringify(data.quotes));
       if (data.disputes) localStorage.setItem(KEYS.DISPUTES, JSON.stringify(data.disputes));
+      if (data.partners) localStorage.setItem(KEYS.PARTNERS, JSON.stringify(data.partners));
       return true;
     } catch (e) {
       return false;

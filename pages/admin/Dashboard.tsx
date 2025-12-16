@@ -1,18 +1,20 @@
 import React, { useEffect, useState } from 'react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Users, Wallet, Activity, Calendar, Download, TrendingUp, Eye, FileText, DollarSign, Image as ImageIcon, Bell } from 'lucide-react';
+import { Users, Wallet, Activity, Calendar, Download, TrendingUp, Eye, FileText, DollarSign, Image as ImageIcon, Bell, Handshake } from 'lucide-react';
 import { jsPDF } from 'jspdf';
 import autoTable from 'jspdf-autotable';
 import { db } from '../../services/db';
-import { Stats, Transaction } from '../../types';
+import { Stats, Transaction, Partner } from '../../types';
 
 const COLORS = ['#ea580c', '#22c55e', '#3b82f6', '#a855f7', '#f43f5e']; // Expanded Palette
 
 const Dashboard = () => {
   const [stats, setStats] = useState<Stats | null>(null);
+  const [partnersCount, setPartnersCount] = useState(0);
 
   useEffect(() => {
     db.getStats().then(setStats);
+    db.getPartners().then(partners => setPartnersCount(partners.length));
   }, []);
 
   const generatePDF = (type: 'daily' | 'weekly' | 'monthly' | 'all') => {
@@ -138,7 +140,7 @@ const Dashboard = () => {
       </div>
       
       {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
         <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
           <div className="flex items-center justify-between">
             <div>
@@ -176,6 +178,17 @@ const Dashboard = () => {
               <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.revenueMonthly} F</p>
             </div>
             <Calendar className="h-8 w-8 text-purple-500 opacity-50" />
+          </div>
+        </div>
+
+        {/* Partners Card */}
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-orange-500">
+           <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm text-gray-500 dark:text-gray-400">Partenaires</p>
+              <p className="text-2xl font-bold text-gray-900 dark:text-white">{partnersCount}</p>
+            </div>
+            <Handshake className="h-8 w-8 text-orange-500 opacity-50" />
           </div>
         </div>
       </div>

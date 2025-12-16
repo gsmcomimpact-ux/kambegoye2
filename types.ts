@@ -146,6 +146,16 @@ export interface Dispute {
   status: 'new' | 'investigating' | 'resolved' | 'closed';
 }
 
+export interface Partner {
+  id: string;
+  name: string;
+  description: string;
+  imageUrl: string;
+  linkUrl: string;
+  isActive: boolean;
+  displayOrder: number;
+}
+
 export interface AppEvent {
   id: string;
   type: 'transaction' | 'project' | 'quote' | 'media' | 'dispute';

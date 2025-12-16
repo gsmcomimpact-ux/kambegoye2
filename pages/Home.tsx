@@ -1,25 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
-import { Search, CheckCircle, Shield, MapPin, ArrowRight, Wrench } from 'lucide-react';
+import { Search, CheckCircle, Shield, MapPin, ArrowRight, Wrench, Star } from 'lucide-react';
 import { db } from '../services/db';
-import { Specialty, Neighborhood } from '../types';
+import { Specialty, Neighborhood, Partner } from '../types';
 
 const Home = () => {
   const navigate = useNavigate();
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
+  const [partners, setPartners] = useState<Partner[]>([]);
   
   const [selectedSpecialty, setSelectedSpecialty] = useState('');
   const [selectedNeighborhood, setSelectedNeighborhood] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
-      const [s, n] = await Promise.all([
+      const [s, n, p] = await Promise.all([
         db.getSpecialties(),
-        db.getNeighborhoods()
+        db.getNeighborhoods(),
+        db.getPartners()
       ]);
       setSpecialties(s);
       setNeighborhoods(n);
+      setPartners(p.filter(partner => partner.isActive).sort((a, b) => a.displayOrder - b.displayOrder));
     };
     fetchData();
   }, []);
@@ -93,49 +96,85 @@ const Home = () => {
         </div>
       </div>
 
-      {/* Partner Section - WADFOW */}
-      <div className="bg-white dark:bg-gray-900 py-12">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="relative rounded-2xl overflow-hidden shadow-2xl bg-gradient-to-r from-blue-900 to-slate-900">
-                {/* Decorative Elements */}
-                <div className="absolute top-0 right-0 -mr-20 -mt-20 w-96 h-96 rounded-full bg-orange-500 opacity-20 blur-3xl"></div>
-                <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-96 h-96 rounded-full bg-blue-500 opacity-20 blur-3xl"></div>
+      {/* Partner Sections (Dynamic Grid) - Only rendered if partners exist */}
+      {partners.length > 0 && (
+        <div className="bg-white dark:bg-gray-900 py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <h2 className="text-2xl font-bold text-gray-800 dark:text-white mb-8 text-center uppercase tracking-wide">Nos Partenaires Officiels</h2>
+                
+                <div className={`grid grid-cols-1 gap-8 ${partners.length > 1 ? 'md:grid-cols-2' : ''}`}>
+                    {partners.map((partner, index) => {
+                        const isExternal = partner.linkUrl && (partner.linkUrl.startsWith('http') || partner.linkUrl.startsWith('www'));
+                        const LinkComponent = isExternal ? 'a' : Link;
+                        const linkProps = isExternal 
+                            ? { href: partner.linkUrl, target: '_blank', rel: 'noopener noreferrer' } 
+                            : { to: partner.linkUrl };
 
-                <div className="relative z-10 flex flex-col md:flex-row items-center p-8 md:p-12 gap-8">
-                    <div className="flex-1 text-center md:text-left">
-                        <div className="inline-flex items-center px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 text-sm font-bold mb-4 border border-orange-500/30">
-                            <Wrench className="w-4 h-4 mr-2" />
-                            PARTENAIRE OFFICIEL
+                        return (
+                        <div key={partner.id} className={`relative rounded-2xl overflow-hidden shadow-2xl flex flex-col ${
+                            index % 2 === 0 
+                            ? 'bg-gradient-to-br from-blue-900 to-slate-900' 
+                            : 'bg-gradient-to-br from-slate-900 to-gray-800'
+                        }`}>
+                            {/* Decorative Elements */}
+                            <div className="absolute top-0 right-0 -mr-20 -mt-20 w-64 h-64 rounded-full bg-orange-500 opacity-20 blur-3xl"></div>
+                            <div className="absolute bottom-0 left-0 -ml-20 -mb-20 w-64 h-64 rounded-full bg-blue-500 opacity-20 blur-3xl"></div>
+
+                            <div className={`relative z-10 p-8 flex ${partners.length === 1 ? 'flex-col md:flex-row md:items-center md:gap-12' : 'flex-col'} h-full`}>
+                                <div className="flex-1">
+                                    <div className="inline-flex items-center px-3 py-1 rounded-full bg-orange-500/20 text-orange-400 text-xs font-bold mb-4 border border-orange-500/30">
+                                        <Star className="w-3 h-3 mr-1" />
+                                        PARTENAIRE
+                                    </div>
+                                    <h2 className="text-2xl md:text-3xl font-black text-white mb-3 tracking-tight uppercase">
+                                        {partner.name}
+                                    </h2>
+                                    <p className="text-base text-gray-300 mb-6 leading-relaxed">
+                                        {partner.description}
+                                    </p>
+                                    
+                                    {partners.length === 1 && partner.linkUrl && (
+                                        // @ts-ignore
+                                        <LinkComponent 
+                                        {...linkProps}
+                                        className="hidden md:inline-flex justify-center items-center px-8 py-4 text-base font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 transition-all shadow-lg group cursor-pointer"
+                                    >
+                                        En savoir plus
+                                        <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                                    </LinkComponent>
+                                    )}
+                                </div>
+                                
+                                <div className={`mt-auto space-y-6 ${partners.length === 1 ? 'w-full md:w-1/2' : ''}`}>
+                                    <div className={`w-full ${partners.length === 1 ? 'h-64' : 'h-48'} bg-white/5 rounded-xl overflow-hidden border border-white/10`}>
+                                        <img 
+                                            src={partner.imageUrl} 
+                                            onError={(e) => {
+                                                e.currentTarget.src = "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=800";
+                                            }}
+                                            alt={partner.name} 
+                                            className="w-full h-full object-cover transform hover:scale-105 transition-transform duration-500"
+                                        />
+                                    </div>
+
+                                    {partner.linkUrl && (
+                                        // @ts-ignore
+                                        <LinkComponent 
+                                            {...linkProps}
+                                            className={`w-full inline-flex justify-center items-center px-6 py-4 text-base font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 transition-all shadow-lg group cursor-pointer ${partners.length === 1 ? 'md:hidden' : ''}`}
+                                        >
+                                            En savoir plus
+                                            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
+                                        </LinkComponent>
+                                    )}
+                                </div>
+                            </div>
                         </div>
-                        <h2 className="text-3xl md:text-5xl font-black text-white mb-4 tracking-tight">
-                            WADFOW <span className="text-orange-500">TOOLS</span>
-                        </h2>
-                        <p className="text-lg text-gray-300 mb-8 max-w-xl mx-auto md:mx-0">
-                            Découvrez la puissance professionnelle. Perceuses, visseuses, et une gamme complète d'outillage électroportatif robuste disponible dès maintenant sur notre boutique.
-                        </p>
-                        <Link 
-                            to="/boutique" 
-                            className="inline-flex items-center px-8 py-4 text-lg font-bold text-white bg-orange-600 rounded-xl hover:bg-orange-700 transition-all transform hover:scale-105 shadow-lg group"
-                        >
-                            Voir la collection
-                            <ArrowRight className="w-5 h-5 ml-2 group-hover:translate-x-1 transition-transform" />
-                        </Link>
-                    </div>
-                    <div className="w-full md:w-1/2 flex justify-center">
-                        <img 
-                            src="/wadfow.png" 
-                            onError={(e) => {
-                                // Fallback si l'image locale n'existe pas
-                                e.currentTarget.src = "https://images.unsplash.com/photo-1504148455328-c376907d081c?auto=format&fit=crop&q=80&w=800";
-                            }}
-                            alt="WADFOW Tools Collection" 
-                            className="rounded-xl shadow-2xl border-4 border-white/10 w-full max-w-md object-cover transform md:rotate-3 hover:rotate-0 transition-all duration-500"
-                        />
-                    </div>
+                    )})}
                 </div>
             </div>
         </div>
-      </div>
+      )}
       
       {/* Features */}
       <div className="py-16 bg-gray-50 dark:bg-gray-800">
