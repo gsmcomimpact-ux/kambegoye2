@@ -206,6 +206,12 @@ const Disputes = () => {
                             <h4 className="text-sm font-bold text-gray-500 uppercase mb-2">Ouvrier Concerné</h4>
                             <div className="bg-gray-50 dark:bg-gray-700 p-3 rounded border dark:border-gray-600">
                                 <p className="font-semibold text-gray-900 dark:text-white">{selectedDispute.workerName || "Non spécifié"}</p>
+                                {selectedDispute.workerPhone && (
+                                    <div className="flex items-center mt-2 text-gray-600 dark:text-gray-300 text-sm">
+                                        <Phone className="w-3 h-3 mr-1" />
+                                        {selectedDispute.workerPhone}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>

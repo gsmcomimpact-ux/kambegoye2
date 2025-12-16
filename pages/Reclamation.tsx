@@ -12,6 +12,7 @@ const Reclamation = () => {
     clientName: '',
     clientPhone: '',
     workerName: '',
+    workerPhone: '',
     reason: '',
     description: ''
   });
@@ -110,15 +111,27 @@ const Reclamation = () => {
             </div>
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom de l'ouvrier concerné (Si connu)</label>
-            <input
-              type="text"
-              name="workerName"
-              placeholder="Ex: Moussa Ibrahim"
-              className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-              onChange={handleChange}
-            />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom de l'ouvrier (Si connu)</label>
+                <input
+                type="text"
+                name="workerName"
+                placeholder="Ex: Moussa Ibrahim"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                onChange={handleChange}
+                />
+            </div>
+            <div>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Téléphone de l'ouvrier (Si connu)</label>
+                <input
+                type="text"
+                name="workerPhone"
+                placeholder="Ex: 90 00 00 00"
+                className="w-full rounded-md border-gray-300 shadow-sm focus:border-red-500 focus:ring-red-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+                onChange={handleChange}
+                />
+            </div>
           </div>
 
           <div>

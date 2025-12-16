@@ -140,6 +140,7 @@ export interface Dispute {
   clientName: string;
   clientPhone: string;
   workerName: string; // Nom de l'ouvrier concerné
+  workerPhone?: string; // Téléphone de l'ouvrier concerné
   reason: string;
   description: string;
   date: string;

@@ -559,6 +559,7 @@ export const db = {
           clientName: disputeData.clientName,
           clientPhone: disputeData.clientPhone,
           workerName: disputeData.workerName,
+          workerPhone: disputeData.workerPhone,
           reason: disputeData.reason,
           description: disputeData.description,
           date: new Date().toISOString(),
