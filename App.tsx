@@ -1,7 +1,9 @@
-import React, { ErrorInfo, ReactNode } from 'react';
+
+import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
+import AIAssistant from './components/AIAssistant';
 import Home from './pages/Home';
 import Search from './pages/Search';
 import WorkerDetails from './pages/WorkerDetails';
@@ -44,9 +46,17 @@ interface ErrorBoundaryState {
 }
 
 // Error Boundary Component
+// Fix: Explicitly extend React.Component to ensure that 'props' (and 'this.props.children') 
+// are correctly recognized by the TypeScript compiler.
 class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  };
+
   constructor(props: ErrorBoundaryProps) {
     super(props);
+    // Explicit initialization for compatibility
     this.state = {
       hasError: false,
       error: null
@@ -82,6 +92,7 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
       );
     }
 
+    // Fix: this.props is now correctly recognized as part of React.Component
     return this.props.children;
   }
 }
@@ -93,6 +104,7 @@ const Layout = () => {
       <main className="flex-grow">
         <Outlet />
       </main>
+      <AIAssistant />
       <Footer />
     </div>
   );
@@ -101,8 +113,7 @@ const Layout = () => {
 const App = () => {
   return (
     <ErrorBoundary>
-      {/* MemoryRouter est utilisé pour éviter les erreurs de sécurité (Location.assign denied) 
-          liées à l'utilisation de HashRouter sur une URL Blob/iframe sandboxée */}
+      {/* MemoryRouter est utilisé pour éviter les erreurs de sécurité liée à l'iframe sandboxée */}
       <MemoryRouter>
         <Routes>
           {/* Client Routes */}

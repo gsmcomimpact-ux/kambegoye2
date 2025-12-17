@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { Search, CheckCircle, Shield, MapPin, ArrowRight, Wrench, Star } from 'lucide-react';
@@ -22,7 +23,13 @@ const Home = () => {
       ]);
       setSpecialties(s);
       setNeighborhoods(n);
-      setPartners(p.filter(partner => partner.isActive).sort((a, b) => a.displayOrder - b.displayOrder));
+      
+      // Filtrage strict : on ne garde que les partenaires explicitement actifs
+      const activePartners = p
+        .filter(partner => partner && partner.isActive === true)
+        .sort((a, b) => (a.displayOrder || 0) - (b.displayOrder || 0));
+        
+      setPartners(activePartners);
     };
     fetchData();
   }, []);
