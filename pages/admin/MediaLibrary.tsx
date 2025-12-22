@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState, useRef } from 'react';
 import { Trash2, Download, FileText, Image as ImageIcon, Upload, Plus } from 'lucide-react';
 import { db, generateUUID } from '../../services/db';
@@ -63,7 +64,7 @@ const MediaLibrary = () => {
   return (
     <div>
       <div className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Médiathèque (Documents & Images)</h2>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Médiathèque Serveur</h2>
         <div>
             <input 
                 type="file" 
@@ -83,13 +84,12 @@ const MediaLibrary = () => {
 
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-6 border border-gray-200 dark:border-gray-700">
           <p className="text-sm text-gray-500">
-              Cet espace regroupe les documents téléversés (ex: Cartes d'identité des ouvriers). 
-              Dans cette version démo, les fichiers sont stockés localement dans le navigateur (Max 5MB total).
+              Cet espace regroupe tous les documents officiels et images des ouvriers enregistrés sur le serveur MySQL de KAMBEGOYE.
           </p>
       </div>
 
       {loading ? (
-        <p className="text-center">Chargement...</p>
+        <p className="text-center">Chargement des fichiers...</p>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
           {medias.map((media) => (

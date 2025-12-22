@@ -1,6 +1,7 @@
 
+
 import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { MemoryRouter, Routes, Route, Outlet } from 'react-router-dom';
+import { HashRouter, Routes, Route, Outlet } from 'react-router-dom';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AIAssistant from './components/AIAssistant';
@@ -45,22 +46,15 @@ interface ErrorBoundaryState {
   error: Error | null;
 }
 
-// Error Boundary Component
-// Fix: Explicitly extend React.Component to ensure that 'props' (and 'this.props.children') 
-// are correctly recognized by the TypeScript compiler.
-class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public state: ErrorBoundaryState = {
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  // Use property initialization for state to avoid potential scope issues
+  state: ErrorBoundaryState = {
     hasError: false,
     error: null
   };
 
   constructor(props: ErrorBoundaryProps) {
     super(props);
-    // Explicit initialization for compatibility
-    this.state = {
-      hasError: false,
-      error: null
-    };
   }
 
   static getDerivedStateFromError(error: Error): ErrorBoundaryState {
@@ -68,38 +62,35 @@ class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoundarySta
   }
 
   componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error("Uncaught error:", error, errorInfo);
+    console.error("Critical error captured:", error, errorInfo);
   }
 
   render() {
+    // Explicitly use this.state
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
-          <div className="bg-white p-8 rounded-lg shadow-xl max-w-lg w-full">
-            <h2 className="text-2xl font-bold text-red-600 mb-4">Une erreur est survenue</h2>
-            <p className="text-gray-700 mb-4">L'application a rencontré un problème inattendu.</p>
-            <div className="bg-gray-100 p-4 rounded text-sm font-mono overflow-auto max-h-48 mb-6 border border-gray-300">
-              {this.state.error?.toString()}
-            </div>
+        <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4 font-sans text-center">
+          <div className="bg-white p-8 rounded-2xl shadow-2xl max-w-lg w-full">
+            <h2 className="text-2xl font-bold text-gray-900 mb-2">Désolé, une erreur est survenue</h2>
+            <p className="text-gray-600 mb-6">L'application doit être rechargée.</p>
             <button 
-              onClick={() => window.location.reload()}
-              className="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition-colors w-full"
+              onClick={() => { localStorage.clear(); window.location.reload(); }}
+              className="bg-brand-600 text-white px-6 py-3 rounded-xl hover:bg-brand-700 transition-all font-bold"
             >
-              Recharger la page
+              Réinitialiser et Recharger
             </button>
           </div>
         </div>
       );
     }
-
-    // Fix: this.props is now correctly recognized as part of React.Component
+    // Explicitly use this.props
     return this.props.children;
   }
 }
 
 const Layout = () => {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen bg-white dark:bg-gray-900 transition-colors duration-300">
       <Navbar />
       <main className="flex-grow">
         <Outlet />
@@ -113,10 +104,8 @@ const Layout = () => {
 const App = () => {
   return (
     <ErrorBoundary>
-      {/* MemoryRouter est utilisé pour éviter les erreurs de sécurité liée à l'iframe sandboxée */}
-      <MemoryRouter>
+      <HashRouter>
         <Routes>
-          {/* Client Routes */}
           <Route path="/" element={<Layout />}>
             <Route index element={<Home />} />
             <Route path="search" element={<Search />} />
@@ -135,7 +124,6 @@ const App = () => {
             <Route path="reclamation" element={<Reclamation />} />
           </Route>
 
-          {/* Admin Routes */}
           <Route path="/admin/login" element={<AdminLogin />} />
           <Route path="/admin" element={<AdminLayout />}>
             <Route index element={<AdminDashboard />} />
@@ -155,7 +143,7 @@ const App = () => {
             <Route path="settings" element={<AdminSettings />} />
           </Route>
         </Routes>
-      </MemoryRouter>
+      </HashRouter>
     </ErrorBoundary>
   );
 };

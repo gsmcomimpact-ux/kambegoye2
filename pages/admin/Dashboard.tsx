@@ -1,325 +1,113 @@
-import React, { useEffect, useState } from 'react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, Legend } from 'recharts';
-import { Users, Wallet, Activity, Calendar, Download, TrendingUp, Eye, FileText, DollarSign, Image as ImageIcon, Bell, Handshake } from 'lucide-react';
-import { jsPDF } from 'jspdf';
-import autoTable from 'jspdf-autotable';
-import { db } from '../../services/db';
-import { Stats, Transaction, Partner } from '../../types';
 
-const COLORS = ['#ea580c', '#22c55e', '#3b82f6', '#a855f7', '#f43f5e']; // Expanded Palette
+import React, { useEffect, useState } from 'react';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import { Users, Wallet, Activity, Bell, FileText, CheckCircle, AlertTriangle, ArrowRight, Clock } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { db } from '../../services/db';
+import { Stats, Notification } from '../../types';
 
 const Dashboard = () => {
   const [stats, setStats] = useState<Stats | null>(null);
-  const [partnersCount, setPartnersCount] = useState(0);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
 
   useEffect(() => {
-    db.getStats().then(setStats);
-    db.getPartners().then(partners => setPartnersCount(partners.length));
+    const loadData = async () => {
+        const [s, n] = await Promise.all([db.getStats(), db.getNotifications()]);
+        setStats(s);
+        setNotifications(n);
+    };
+    loadData();
   }, []);
 
-  const generatePDF = (type: 'daily' | 'weekly' | 'monthly' | 'all') => {
-    if (!stats) return;
-
-    const doc = new jsPDF();
-    
-    let title = "Rapport Financier - KAMBEGOYE";
-    let transactions: Transaction[] = [];
-    const now = new Date();
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
-    const oneWeekAgo = today - (7 * 24 * 60 * 60 * 1000);
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime();
-
-    if (type === 'daily') {
-      title += " (Journalier)";
-      transactions = stats.allTransactions.filter(t => new Date(t.date).getTime() >= today);
-    } else if (type === 'weekly') {
-      title += " (Hebdomadaire)";
-      transactions = stats.allTransactions.filter(t => new Date(t.date).getTime() >= oneWeekAgo);
-    } else if (type === 'monthly') {
-      title += " (Mensuel)";
-      transactions = stats.allTransactions.filter(t => new Date(t.date).getTime() >= startOfMonth);
-    } else {
-      title += " (Global)";
-      transactions = stats.allTransactions;
-    }
-
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Date d'export: ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Total Transactions: ${transactions.length}`, 14, 36);
-    doc.text(`Revenu Total: ${transactions.reduce((acc, t) => acc + t.amount, 0)} FCFA`, 14, 42);
-
-    const tableColumn = ["ID", "Date", "Montant", "Type", "Méthode", "Statut"];
-    const tableRows = transactions.map(tx => [
-      tx.id.substring(0, 8),
-      new Date(tx.date).toLocaleDateString() + ' ' + new Date(tx.date).toLocaleTimeString(),
-      `${tx.amount} FCFA`,
-      tx.category || '-',
-      tx.method,
-      tx.status
-    ]);
-
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 50,
-    });
-
-    doc.save(`rapport_${type}_${new Date().toISOString().slice(0, 10)}.pdf`);
+  const markRead = (id: string) => {
+      db.markNotificationAsRead(id);
+      setNotifications(prev => prev.map(n => n.id === id ? {...n, isRead: true} : n));
   };
 
-  const generatePaymentMethodPDF = (method: string) => {
-    if (!stats) return;
-
-    const doc = new jsPDF();
-    const title = `Rapport ${method} - KAMBEGOYE`;
-    const transactions = stats.allTransactions.filter(t => t.method === method);
-
-    doc.setFontSize(18);
-    doc.text(title, 14, 22);
-    doc.setFontSize(11);
-    doc.text(`Date d'export: ${new Date().toLocaleDateString()}`, 14, 30);
-    doc.text(`Total Transactions: ${transactions.length}`, 14, 36);
-    doc.text(`Revenu Total: ${transactions.reduce((acc, t) => acc + t.amount, 0)} FCFA`, 14, 42);
-
-    const tableColumn = ["ID", "Date", "Montant", "Statut"];
-    const tableRows = transactions.map(tx => [
-      tx.id.substring(0, 8),
-      new Date(tx.date).toLocaleDateString() + ' ' + new Date(tx.date).toLocaleTimeString(),
-      `${tx.amount} FCFA`,
-      tx.status
-    ]);
-
-    autoTable(doc, {
-      head: [tableColumn],
-      body: tableRows,
-      startY: 50,
-    });
-
-    doc.save(`rapport_${method}_${new Date().toISOString().slice(0, 10)}.pdf`);
-  };
-
-  const getEventIcon = (type: string) => {
-      switch (type) {
-          case 'transaction': return <DollarSign className="w-5 h-5 text-green-600" />;
-          case 'project': return <FileText className="w-5 h-5 text-blue-600" />;
-          case 'quote': return <FileText className="w-5 h-5 text-orange-600" />;
-          case 'media': return <ImageIcon className="w-5 h-5 text-purple-600" />;
-          default: return <Activity className="w-5 h-5 text-gray-600" />;
-      }
-  };
-
-  const getRelativeTime = (dateString: string) => {
-      const date = new Date(dateString);
-      const now = new Date();
-      const diffMs = now.getTime() - date.getTime();
-      const diffMins = Math.floor(diffMs / 60000);
-      const diffHours = Math.floor(diffMs / 3600000);
-      const diffDays = Math.floor(diffMs / 86400000);
-
-      if (diffMins < 1) return "À l'instant";
-      if (diffMins < 60) return `Il y a ${diffMins} min`;
-      if (diffHours < 24) return `Il y a ${diffHours} h`;
-      if (diffDays === 1) return "Hier";
-      if (diffDays < 7) return `Il y a ${diffDays} j`;
-      return date.toLocaleDateString();
-  };
-
-  if (!stats) return <div className="p-6 text-center">Chargement des données...</div>;
+  if (!stats) return <div className="p-6 text-center">Chargement...</div>;
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Tableau de Bord</h2>
-        <div className="flex space-x-2">
-            <button onClick={() => generatePDF('all')} className="flex items-center text-sm bg-gray-800 text-white px-3 py-2 rounded hover:bg-gray-700">
-                <Download className="w-4 h-4 mr-2" /> Rapport Complet
-            </button>
-        </div>
+        <h2 className="text-2xl font-bold text-gray-800 dark:text-white">Aperçu de la Plateforme</h2>
       </div>
       
-      {/* Top Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-blue-500">
-          <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Ouvriers</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalWorkers}</p>
-            </div>
-            <Users className="h-8 w-8 text-blue-500 opacity-50" />
-          </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-l-4 border-blue-500">
+          <p className="text-sm text-gray-500">Total Ouvriers</p>
+          <p className="text-2xl font-bold">{stats.totalWorkers}</p>
         </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-green-500">
-           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Total Ventes</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalTransactions}</p>
-            </div>
-            <Activity className="h-8 w-8 text-green-500 opacity-50" />
-          </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-l-4 border-green-500">
+          <p className="text-sm text-gray-500">Total Ventes</p>
+          <p className="text-2xl font-bold">{stats.totalTransactions}</p>
         </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-brand-500">
-           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Revenu Total</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalRevenue} F</p>
-            </div>
-            <Wallet className="h-8 w-8 text-brand-500 opacity-50" />
-          </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-l-4 border-brand-500">
+          <p className="text-sm text-gray-500">Revenu Global</p>
+          <p className="text-2xl font-bold">{stats.totalRevenue} F</p>
         </div>
-
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-purple-500">
-           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Ce mois</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.revenueMonthly} F</p>
-            </div>
-            <Calendar className="h-8 w-8 text-purple-500 opacity-50" />
-          </div>
-        </div>
-
-        {/* Partners Card */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm border-l-4 border-orange-500">
-           <div className="flex items-center justify-between">
-            <div>
-              <p className="text-sm text-gray-500 dark:text-gray-400">Partenaires</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white">{partnersCount}</p>
-            </div>
-            <Handshake className="h-8 w-8 text-orange-500 opacity-50" />
-          </div>
+        <div className="bg-white dark:bg-gray-800 p-6 rounded-xl shadow-sm border-l-4 border-orange-500">
+          <p className="text-sm text-gray-500">Demandes Projets</p>
+          <p className="text-2xl font-bold">{stats.pendingProjects || 0}</p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Activity Feed (Timeline) */}
-          <div className="lg:col-span-1 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm h-full max-h-[500px] overflow-y-auto">
-              <h3 className="text-lg font-semibold mb-4 text-gray-800 dark:text-white flex items-center sticky top-0 bg-white dark:bg-gray-800 pb-2 z-10 border-b border-gray-100 dark:border-gray-700">
-                  <Bell className="w-5 h-5 mr-2 text-brand-600" /> Activités Récentes
-              </h3>
-              <div className="space-y-4">
-                  {stats.recentEvents.length === 0 && <p className="text-gray-500 text-sm">Aucune activité récente.</p>}
-                  {stats.recentEvents.map((event) => (
-                      <div key={event.id} className="flex items-start space-x-3 pb-3 border-b border-gray-50 dark:border-gray-700 last:border-0">
-                          <div className={`mt-1 p-2 rounded-full bg-gray-100 dark:bg-gray-700`}>
-                              {getEventIcon(event.type)}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                              <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
-                                  {event.title}
-                              </p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400 truncate">
-                                  {event.description}
-                              </p>
-                          </div>
-                          <div className="text-xs text-gray-400 whitespace-nowrap">
-                              {getRelativeTime(event.date)}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Centre de Notifications */}
+          <div className="lg:col-span-1 bg-white dark:bg-gray-800 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 overflow-hidden flex flex-col h-[500px]">
+              <div className="p-4 bg-brand-50 dark:bg-brand-900/20 border-b flex justify-between items-center">
+                  <h3 className="font-bold text-gray-800 dark:text-white flex items-center">
+                      <Bell className="w-5 h-5 mr-2 text-brand-600" /> Notifications
+                  </h3>
+                  {notifications.filter(n => !n.isRead).length > 0 && (
+                      <span className="bg-red-500 text-white text-[10px] font-bold px-2 py-0.5 rounded-full">
+                          {notifications.filter(n => !n.isRead).length}
+                      </span>
+                  )}
+              </div>
+              <div className="flex-1 overflow-y-auto divide-y divide-gray-50 dark:divide-gray-700">
+                  {notifications.length === 0 && <p className="p-8 text-center text-gray-400 text-sm">Aucune notification.</p>}
+                  {notifications.map(notif => (
+                      <div 
+                        key={notif.id} 
+                        onClick={() => markRead(notif.id)}
+                        className={`p-4 hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors cursor-pointer relative ${!notif.isRead ? 'bg-blue-50/30 border-l-2 border-brand-500' : ''}`}
+                      >
+                          <div className="flex gap-3">
+                              <div className={`mt-1 p-1.5 rounded-full ${
+                                  notif.type === 'success' ? 'bg-green-100 text-green-600' : 
+                                  notif.type === 'warning' ? 'bg-orange-100 text-orange-600' : 'bg-blue-100 text-blue-600'
+                              }`}>
+                                  {notif.type === 'success' ? <CheckCircle className="w-3.5 h-3.5"/> : <Bell className="w-3.5 h-3.5"/>}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                  <p className="text-xs font-bold text-gray-900 dark:text-white mb-1">{notif.title}</p>
+                                  <p className="text-[11px] text-gray-500 dark:text-gray-400 line-clamp-2">{notif.message}</p>
+                                  <div className="flex justify-between items-center mt-2">
+                                      <span className="text-[9px] text-gray-400 flex items-center"><Clock className="w-2.5 h-2.5 mr-1" /> {new Date(notif.date).toLocaleDateString()}</span>
+                                      {notif.link && <Link to={notif.link} className="text-[9px] text-brand-600 font-bold hover:underline">Voir détails</Link>}
+                                  </div>
+                              </div>
                           </div>
                       </div>
                   ))}
               </div>
           </div>
 
-          {/* Analytics Section: Top Workers */}
-          <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm">
-            <h3 className="text-lg font-semibold mb-6 text-gray-800 dark:text-white flex items-center">
-                <Eye className="w-5 h-5 mr-2 text-brand-600" /> Profils les plus consultés
-            </h3>
-            <div className="h-64">
+          {/* Graphique de Vues */}
+          <div className="lg:col-span-2 bg-white dark:bg-gray-800 p-6 rounded-2xl shadow-md border border-gray-100 dark:border-gray-700 h-[500px]">
+            <h3 className="text-lg font-bold mb-6 flex items-center"><Activity className="w-5 h-5 mr-2 text-brand-600" /> Profils les plus consultés</h3>
+            <div className="h-full pb-16">
                 <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={stats.topWorkers} layout="vertical" margin={{ left: 40, right: 20 }}>
+                    <BarChart data={stats.topWorkers} layout="vertical">
                         <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} />
-                        <XAxis type="number" />
-                        <YAxis 
-                            dataKey="firstName" 
-                            type="category" 
-                            tickFormatter={(val, index) => `${val} ${stats.topWorkers[index]?.lastName?.charAt(0)}.`} 
-                            width={100}
-                        />
-                        <Tooltip cursor={{ fill: 'transparent' }} />
-                        <Bar dataKey="views" fill="#ea580c" radius={[0, 4, 4, 0]} name="Vues" barSize={20} />
+                        <XAxis type="number" hide />
+                        <YAxis dataKey="lastName" type="category" width={100} />
+                        <Tooltip />
+                        <Bar dataKey="views" fill="#16a34a" radius={[0, 4, 4, 0]} name="Vues" barSize={15} />
                     </BarChart>
                 </ResponsiveContainer>
             </div>
           </div>
-      </div>
-
-      {/* Detailed Revenue Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Revenue Breakdown by Source (New!) */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm flex flex-col items-center">
-           <div className="w-full flex justify-between items-center mb-4">
-             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Revenus par Source</h3>
-           </div>
-           
-           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                    <Pie
-                        data={stats.revenueBySource}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
-                    >
-                        {stats.revenueBySource.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                    </Pie>
-                    <Tooltip formatter={(value) => `${value} FCFA`} />
-                    <Legend verticalAlign="bottom" height={36}/>
-                </PieChart>
-            </ResponsiveContainer>
-           </div>
-        </div>
-
-        {/* Payment Methods Chart */}
-        <div className="bg-white dark:bg-gray-800 p-6 rounded-lg shadow-sm flex flex-col items-center">
-           <div className="w-full flex justify-between items-center mb-4">
-             <h3 className="text-lg font-semibold text-gray-800 dark:text-white">Méthodes de Paiement</h3>
-           </div>
-           
-           <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                    <Pie
-                        data={stats.paymentMethods}
-                        cx="50%"
-                        cy="50%"
-                        labelLine={false}
-                        outerRadius={80}
-                        fill="#8884d8"
-                        dataKey="value"
-                        label={({ name, percent }) => percent > 0.05 ? `${name} ${(percent * 100).toFixed(0)}%` : ''}
-                    >
-                        {stats.paymentMethods.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                        ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend verticalAlign="bottom" height={36}/>
-                </PieChart>
-            </ResponsiveContainer>
-           </div>
-           
-           <div className="w-full grid grid-cols-2 gap-4 mt-4">
-             {stats.paymentMethods.map((method) => (
-               <button 
-                 key={method.name}
-                 onClick={() => generatePaymentMethodPDF(method.name)}
-                 className="flex items-center justify-center py-2 px-3 text-xs font-medium border border-gray-300 dark:border-gray-600 rounded hover:bg-gray-50 dark:hover:bg-gray-700 text-gray-700 dark:text-gray-300"
-               >
-                 <Download className="w-3 h-3 mr-2" />
-                 Export {method.name}
-               </button>
-             ))}
-           </div>
-        </div>
       </div>
     </div>
   );

@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, Link, useNavigate, NavigateFunction } from 'react-router-dom';
-import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock } from 'lucide-react';
+import { Star, MapPin, BadgeCheck, Lock, RotateCw, Map, Clock, Search as SearchIcon } from 'lucide-react';
 import { db } from '../services/db';
 import { Worker, Specialty, Country, City, Neighborhood } from '../types';
 
@@ -16,88 +16,77 @@ interface WorkerCardProps {
   onUnlock: () => void;
 }
 
-const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPaid, navigate, specialties, cities, countries, onUnlock }) => {
+const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPaid, specialties, cities, onUnlock }) => {
   const specialtyName = specialties.find(s => s.id === worker.specialtyId)?.name;
   const cityName = cities.find(c => c.id === worker.cityId)?.name || 'Niamey';
-  
-  // Masquer le nom si pas payé
-  const displayName = hasPaid 
-    ? `${worker.firstName} ${worker.lastName}` 
-    : `${worker.firstName} ${worker.lastName.charAt(0)}.`;
+  const displayName = hasPaid ? `${worker.firstName} ${worker.lastName}` : `${worker.firstName} ${worker.lastName.charAt(0)}.`;
 
   return (
-    <div className={`rounded-lg shadow-md overflow-hidden hover:shadow-lg transition-shadow border ${isNearby ? 'border-orange-200 bg-orange-50 dark:bg-gray-800 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
+    <div className={`rounded-2xl shadow-md overflow-hidden hover:shadow-xl transition-all duration-300 border ${isNearby ? 'border-orange-200 bg-orange-50 dark:bg-gray-800 dark:border-gray-600' : 'bg-white dark:bg-gray-800 border-gray-100 dark:border-gray-700'}`}>
       <div className="relative h-48 bg-gray-100 overflow-hidden">
-        {/* Photo floutée si pas payé */}
         <img 
           src={worker.photoUrl} 
           alt="Ouvrier" 
-          className={`w-full h-full object-cover transition-all duration-300 ${!hasPaid ? 'blur-[4px] scale-110 opacity-80' : ''}`}
+          className={`w-full h-full object-cover transition-all duration-500 ${!hasPaid ? 'blur-[6px] scale-110 opacity-70' : ''}`}
         />
-        
-        {/* Overlay Cadenas si pas payé */}
         {!hasPaid && (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/20 z-10">
-            <div className="bg-white/90 p-3 rounded-full shadow-lg">
-              <Lock className="w-6 h-6 text-gray-700" />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/10 z-10">
+            <div className="bg-white/90 p-3 rounded-full shadow-2xl transform scale-110">
+              <Lock className="w-6 h-6 text-gray-800" />
             </div>
           </div>
         )}
-
         {worker.isVerified && hasPaid && (
-          <div className="absolute top-2 right-2 bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center shadow-md z-10">
+          <div className="absolute top-3 right-3 bg-blue-600 text-white text-[10px] font-black uppercase tracking-widest px-3 py-1 rounded-full flex items-center shadow-lg z-10">
             <BadgeCheck className="w-3 h-3 mr-1" /> Vérifié
           </div>
         )}
-        
-        <div className={`absolute bottom-2 left-2 px-2 py-1 rounded text-xs font-semibold z-10 ${
+        <div className={`absolute bottom-3 left-3 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-wider z-10 shadow-sm ${
           worker.availability === 'available' ? 'bg-green-500 text-white' : 'bg-red-500 text-white'
         }`}>
           {worker.availability === 'available' ? 'Disponible' : 'Occupé'}
         </div>
       </div>
 
-      <div className="p-4">
+      <div className="p-5">
         <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-bold text-gray-900 dark:text-white">{displayName}</h3>
-            <p className="text-brand-600 font-medium">{specialtyName}</p>
+            <h3 className="text-lg font-bold text-gray-900 dark:text-white leading-tight">{displayName}</h3>
+            <p className="text-brand-600 font-bold text-sm uppercase tracking-wide mt-0.5">{specialtyName}</p>
           </div>
-          <div className="flex items-center bg-yellow-100 text-yellow-800 px-2 py-1 rounded-md">
-            <Star className="w-4 h-4 fill-current mr-1" />
-            <span className="text-sm font-bold">{worker.rating}</span>
+          <div className="flex items-center bg-yellow-50 text-yellow-700 px-2 py-1 rounded-lg border border-yellow-100">
+            <Star className="w-3.5 h-3.5 fill-current mr-1 text-yellow-500" />
+            <span className="text-xs font-black">{worker.rating}</span>
           </div>
         </div>
 
-        <div className="mt-3 flex items-center text-gray-500 dark:text-gray-400 text-sm">
-          <MapPin className="w-4 h-4 mr-1" />
+        <div className="mt-4 flex items-center text-gray-500 dark:text-gray-400 text-xs font-medium">
+          <MapPin className="w-3.5 h-3.5 mr-1.5 text-red-500" />
           {cityName}
         </div>
         
         {isNearby && (
-            <div className="mt-2 text-xs font-semibold text-orange-600 flex items-center">
-                <Map className="w-3 h-3 mr-1"/> Suggestion (Autre Spécialité proche)
+            <div className="mt-2 text-[10px] font-black text-orange-600 uppercase tracking-widest flex items-center">
+                <Map className="w-3 h-3 mr-1"/> Suggestion Proche
             </div>
         )}
 
-        <div className="mt-4 pt-4 border-t border-gray-100 dark:border-gray-700">
+        <div className="mt-5">
           {hasPaid ? (
             <Link 
               to={`/ouvrier/${worker.id}`}
-              className="block w-full text-center bg-brand-600 text-white py-2 rounded-md hover:bg-brand-700 transition-colors font-medium"
+              className="block w-full text-center bg-brand-600 text-white py-3 rounded-xl hover:bg-brand-700 transition-all font-bold shadow-md hover:shadow-brand-500/20"
             >
-              Voir Profil Complet
+              Consulter le profil
             </Link>
           ) : (
-            <div className="relative group">
-               <button 
+            <button 
                 onClick={onUnlock}
-                className="block w-full text-center bg-gray-900 text-white py-2 rounded-md cursor-pointer hover:bg-gray-800 transition-colors font-medium flex items-center justify-center shadow-sm"
+                className="block w-full text-center bg-gray-900 text-white py-3 rounded-xl cursor-pointer hover:bg-black transition-all font-bold flex items-center justify-center shadow-lg active:scale-95"
               >
                 <Lock className="w-4 h-4 mr-2" />
-                Débloquer le contact
-              </button>
-            </div>
+                Débloquer Contact
+            </button>
           )}
         </div>
       </div>
@@ -108,110 +97,62 @@ const WorkerCard: React.FC<WorkerCardProps> = ({ worker, isNearby = false, hasPa
 const Search = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  
   const [workers, setWorkers] = useState<Worker[]>([]);
   const [nearbyWorkers, setNearbyWorkers] = useState<Worker[]>([]);
-  
   const [specialties, setSpecialties] = useState<Specialty[]>([]);
   const [neighborhoods, setNeighborhoods] = useState<Neighborhood[]>([]);
-  const [countries, setCountries] = useState<Country[]>([]);
   const [cities, setCities] = useState<City[]>([]);
-  
+  const [countries, setCountries] = useState<Country[]>([]);
   const [hasPaid, setHasPaid] = useState(false);
   const [loading, setLoading] = useState(true);
   const [consultationPrice, setConsultationPrice] = useState(200);
   const [timeLeft, setTimeLeft] = useState(0);
 
-  // Filters from URL
   const specialtyFilter = searchParams.get('specialty') || '';
   const neighborhoodFilter = searchParams.get('neighborhood') || '';
 
-  const shuffleArray = (array: Worker[]) => {
-      const newArr = [...array];
-      for (let i = newArr.length - 1; i > 0; i--) {
-          const j = Math.floor(Math.random() * (i + 1));
-          [newArr[i], newArr[j]] = [newArr[j], newArr[i]];
-      }
-      return newArr;
-  };
-
-  // Load initial static data
   useEffect(() => {
     const init = async () => {
-        const [specs, cntrs, hoods] = await Promise.all([
-          db.getSpecialties(), 
-          db.getCountries(),
-          db.getNeighborhoods()
+        const [specs, cntrs, hoods, settings, allCities] = await Promise.all([
+          db.getSpecialties(), db.getCountries(), db.getNeighborhoods(), db.getSettings(), db.getCities()
         ]);
-        setSpecialties(specs);
-        setCountries(cntrs);
-        setNeighborhoods(hoods);
-        const settings = await db.getSettings();
-        setConsultationPrice(settings.consultationPrice);
-        db.getCities().then(setCities);
+        setSpecialties(specs); setCountries(cntrs); setNeighborhoods(hoods); setConsultationPrice(settings.consultationPrice); setCities(allCities);
     };
     init();
   }, []);
 
-  // Main search logic
   useEffect(() => {
     const loadWorkers = async () => {
       setLoading(true);
       const allWorkers = await db.getWorkers();
-      
-      // Basic Filter: Active account status
       let baseList = allWorkers.filter(w => w.accountStatus === 'active');
+      if (neighborhoodFilter) baseList = baseList.filter(w => w.neighborhoodId === neighborhoodFilter);
       
-      // Filter by neighborhood if selected
-      if (neighborhoodFilter) {
-          baseList = baseList.filter(w => w.neighborhoodId === neighborhoodFilter);
-      }
-
-      // Exact Matches (Specialty)
       let exactMatches = [...baseList];
+      if (specialtyFilter) exactMatches = exactMatches.filter(w => w.specialtyId === specialtyFilter);
       
-      if (specialtyFilter) {
-        exactMatches = exactMatches.filter(w => w.specialtyId === specialtyFilter);
-      }
-      
-      // Shuffle exact matches
-      const shuffledMatches = shuffleArray(exactMatches);
-      setWorkers(shuffledMatches.slice(0, 5)); // Show up to 5 main results
+      setWorkers(exactMatches.sort(() => Math.random() - 0.5));
 
-      // Suggestions (Same neighborhood but different specialty, OR same specialty different hood if result low)
-      let nearby: Worker[] = [];
-      if (specialtyFilter && shuffledMatches.length < 3) {
-         // Fallback: If filtered by neighborhood, show other workers in that neighborhood
-         // If no neighborhood filter, show other workers in same specialty (which we already have in exactMatches)
-         nearby = baseList.filter(w => w.specialtyId !== specialtyFilter);
-         const needed = 3 - shuffledMatches.length;
-         setNearbyWorkers(shuffleArray(nearby).slice(0, Math.max(needed, 3)));
-      } else {
-          setNearbyWorkers([]);
-      }
+      if (specialtyFilter && exactMatches.length < 3) {
+         const nearby = baseList.filter(w => w.specialtyId !== specialtyFilter);
+         setNearbyWorkers(nearby.sort(() => Math.random() - 0.5).slice(0, 4));
+      } else setNearbyWorkers([]);
       
-      // Paid status check
       const paid = db.hasPaid();
       setHasPaid(paid);
-      if (paid) {
-          setTimeLeft(db.getSessionTimeRemaining());
-      }
+      if (paid) setTimeLeft(db.getSessionTimeRemaining());
       setLoading(false);
     };
     loadWorkers();
   }, [specialtyFilter, neighborhoodFilter]);
 
-  // Timer Effect
   useEffect(() => {
     let interval: any;
     if (hasPaid && timeLeft > 0) {
         interval = setInterval(() => {
             const remaining = db.getSessionTimeRemaining();
             setTimeLeft(remaining);
-            if (remaining <= 0) {
-                setHasPaid(false); // Session expired
-                clearInterval(interval);
-            }
+            if (remaining <= 0) { setHasPaid(false); clearInterval(interval); }
         }, 1000);
     }
     return () => clearInterval(interval);
@@ -219,157 +160,112 @@ const Search = () => {
 
   const handleFilterChange = (key: string, value: string) => {
     const newParams = new URLSearchParams(searchParams);
-    if (value) {
-      newParams.set(key, value);
-    } else {
-      newParams.delete(key);
-    }
+    if (value) newParams.set(key, value); else newParams.delete(key);
     setSearchParams(newParams);
   };
   
   const handleUnlockClick = () => {
-      // Save current search context so we can show relevant results after payment
-      sessionStorage.setItem('last_search_context', JSON.stringify({
-          specialty: specialtyFilter,
-          neighborhood: neighborhoodFilter
-      }));
+      sessionStorage.setItem('last_search_context', JSON.stringify({ specialty: specialtyFilter, neighborhood: neighborhoodFilter }));
       navigate('/payment');
   };
   
-  const formatTime = (seconds: number) => {
-      const m = Math.floor(seconds / 60);
-      const s = seconds % 60;
-      return `${m}:${s < 10 ? '0' : ''}${s}`;
-  };
+  const formatTime = (seconds: number) => `${Math.floor(seconds / 60)}:${(seconds % 60).toString().padStart(2, '0')}`;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-      
-      {/* Filters Bar */}
-      <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center">
-        
-        {/* Specialty Filter */}
+      <div className="bg-white dark:bg-gray-800 p-4 rounded-2xl shadow-sm mb-8 flex flex-col md:flex-row gap-4 items-center border border-gray-100 dark:border-gray-700">
         <div className="w-full md:w-1/3 relative">
             <select
                 value={specialtyFilter}
                 onChange={(e) => handleFilterChange('specialty', e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 pl-8"
+                className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-3 pl-10 text-sm font-medium"
             >
-                <option value="">Toutes les spécialités</option>
+                <option value="">Tous les métiers</option>
                 {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
             </select>
-             <Star className="w-4 h-4 absolute left-2.5 top-3 text-gray-500"/>
+             {/* Fixed typo: changed StarIcon to Star */}
+             <Star className="w-4 h-4 absolute left-3.5 top-3.5 text-gray-400"/>
         </div>
-
-        {/* Neighborhood Filter */}
         <div className="w-full md:w-1/3 relative">
             <select
                 value={neighborhoodFilter}
                 onChange={(e) => handleFilterChange('neighborhood', e.target.value)}
-                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-2 pl-8"
+                className="block w-full rounded-xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 bg-gray-50 dark:bg-gray-700 dark:border-gray-600 dark:text-white p-3 pl-10 text-sm font-medium"
             >
-                <option value="">Tous les quartiers (Niamey)</option>
+                <option value="">Tous les quartiers</option>
                 {neighborhoods.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
             </select>
-             <MapPin className="w-4 h-4 absolute left-2.5 top-3 text-gray-500"/>
+             <MapPin className="w-4 h-4 absolute left-3.5 top-3.5 text-gray-400"/>
         </div>
-
-        <div className="text-sm text-gray-500 dark:text-gray-400 ml-auto flex items-center whitespace-nowrap">
-          {workers.length} expert(s) trouvé(s)
+        <div className="text-xs font-black uppercase tracking-widest text-gray-400 ml-auto flex items-center whitespace-nowrap">
+          {workers.length} PROS TROUVÉS
         </div>
       </div>
 
-      {/* Paywall Banner OR Timer */}
-      {!hasPaid && (workers.length > 0 || nearbyWorkers.length > 0) ? (
-        <div className="bg-accent-600 text-white rounded-lg p-4 mb-6 flex flex-col sm:flex-row items-center justify-between shadow-lg animate-pulse">
-          <div className="flex items-center mb-4 sm:mb-0">
-            <Lock className="h-6 w-6 mr-3" />
+      {!hasPaid && workers.length > 0 ? (
+        <div className="bg-brand-600 text-white rounded-2xl p-5 mb-8 flex flex-col sm:flex-row items-center justify-between shadow-2xl relative overflow-hidden group">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 transition-transform group-hover:scale-110"></div>
+          <div className="flex items-center mb-4 sm:mb-0 relative z-10">
+            <div className="bg-white/20 p-3 rounded-xl mr-4"><Lock className="h-6 w-6" /></div>
             <div>
-              <p className="font-bold text-lg">Débloquez les contacts !</p>
-              <p className="text-sm opacity-90">Payez {consultationPrice} FCFA pour accéder aux ouvriers pendant 5 minutes.</p>
+              <p className="font-black text-xl leading-tight">DÉBLOQUEZ LES CONTACTS !</p>
+              <p className="text-xs font-bold text-brand-100 uppercase tracking-widest mt-1">Accès illimité pendant 5 minutes pour seulement {consultationPrice} F</p>
             </div>
           </div>
           <button 
             onClick={handleUnlockClick}
-            className="bg-white text-accent-600 px-6 py-2 rounded-full font-bold hover:bg-gray-100 transition-colors whitespace-nowrap"
+            className="bg-white text-brand-700 px-8 py-3 rounded-xl font-black text-sm uppercase tracking-widest hover:bg-brand-50 transition-all shadow-xl active:scale-95 relative z-10"
           >
-            Payer {consultationPrice} F
+            Payer {consultationPrice} FCFA
           </button>
         </div>
       ) : hasPaid && timeLeft > 0 && (
-          <div className="bg-green-100 text-green-800 border border-green-200 rounded-lg p-3 mb-6 flex items-center justify-center shadow-sm">
-             <Clock className="w-5 h-5 mr-2" />
-             <span className="font-bold">Session active : {formatTime(timeLeft)} restants</span>
+          <div className="bg-green-500 text-white border border-green-400 rounded-2xl p-4 mb-8 flex items-center justify-center shadow-lg animate-pulse">
+             <Clock className="w-5 h-5 mr-3" />
+             <span className="font-black uppercase tracking-widest text-sm">Session active : {formatTime(timeLeft)} restants</span>
           </div>
       )}
 
-      {/* Results Grid - Exact Matches */}
       {workers.length > 0 && (
           <div className="mb-12">
-            <div className="flex items-center mb-4">
-                 <h2 className="text-xl font-bold text-gray-800 dark:text-white">Résultats</h2>
-                 <span className="ml-2 bg-brand-100 text-brand-800 text-xs px-2 py-1 rounded-full">{workers.length}</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                 {workers.map((worker) => (
                   <WorkerCard 
-                    key={worker.id} 
-                    worker={worker} 
-                    hasPaid={hasPaid} 
-                    navigate={navigate} 
-                    specialties={specialties} 
-                    cities={cities}
-                    countries={countries}
-                    onUnlock={handleUnlockClick}
+                    key={worker.id} worker={worker} hasPaid={hasPaid} navigate={navigate} specialties={specialties} cities={cities} countries={countries} onUnlock={handleUnlockClick}
                   />
                 ))}
             </div>
           </div>
       )}
 
-      {/* No Exact Matches Message */}
       {workers.length === 0 && !loading && (
-         <div className="text-center py-8 bg-gray-50 dark:bg-gray-800 rounded-lg mb-8">
-            <p className="text-gray-500 dark:text-gray-400 text-lg">Aucun ouvrier trouvé pour ces critères.</p>
-            {nearbyWorkers.length > 0 && <p className="text-brand-600 mt-2 font-medium">Voici d'autres professionnels disponibles :</p>}
+         <div className="text-center py-16 bg-gray-50 dark:bg-gray-800 rounded-3xl mb-8 border-2 border-dashed border-gray-200 dark:border-gray-700">
+            <SearchIcon className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+            <p className="text-gray-500 dark:text-gray-400 font-bold text-lg">Aucun ouvrier trouvé à Niamey pour ces critères.</p>
+            {nearbyWorkers.length > 0 && <p className="text-brand-600 mt-2 font-black uppercase tracking-widest text-xs">Découvrez d'autres professionnels proches :</p>}
          </div>
       )}
       
-      {/* Nearby Suggestions */}
       {nearbyWorkers.length > 0 && (
           <div>
-            <div className="flex items-center mb-4">
-                <h2 className="text-xl font-bold text-gray-800 dark:text-white flex items-center">
-                    <RotateCw className="w-5 h-5 mr-2 text-orange-500" />
-                    Autres professionnels (Suggestions)
+            <div className="flex items-center mb-6">
+                <div className="h-px bg-orange-200 flex-1"></div>
+                <h2 className="mx-4 text-xs font-black text-orange-600 uppercase tracking-[0.2em] flex items-center whitespace-nowrap">
+                    <RotateCw className="w-4 h-4 mr-2" />Suggestions Proches
                 </h2>
-                <span className="ml-2 bg-orange-100 text-orange-800 text-xs px-2 py-1 rounded-full">{nearbyWorkers.length}</span>
+                <div className="h-px bg-orange-200 flex-1"></div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
                 {nearbyWorkers.map((worker) => (
                   <WorkerCard 
-                    key={worker.id} 
-                    worker={worker} 
-                    isNearby={true}
-                    hasPaid={hasPaid} 
-                    navigate={navigate} 
-                    specialties={specialties} 
-                    cities={cities}
-                    countries={countries}
-                    onUnlock={handleUnlockClick}
+                    key={worker.id} worker={worker} isNearby={true} hasPaid={hasPaid} navigate={navigate} specialties={specialties} cities={cities} countries={countries} onUnlock={handleUnlockClick}
                   />
                 ))}
             </div>
           </div>
       )}
 
-      {workers.length === 0 && nearbyWorkers.length === 0 && !loading && (
-        <div className="text-center py-12">
-          <p className="text-gray-500 dark:text-gray-400 text-lg">Aucun résultat trouvé.</p>
-        </div>
-      )}
-
-      {loading && <p className="text-center p-12">Chargement...</p>}
+      {loading && <div className="flex flex-col items-center justify-center py-20"><div className="w-12 h-12 border-4 border-brand-200 border-t-brand-600 rounded-full animate-spin"></div><p className="mt-4 font-black uppercase tracking-widest text-gray-400 text-xs">Chargement des experts...</p></div>}
     </div>
   );
 };

@@ -1,9 +1,8 @@
 
-
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { UserPlus, Upload, CheckCircle, AlertCircle, FileText, Image as ImageIcon, Trash2 } from 'lucide-react';
-import { db } from '../services/db';
+import { db, generateUUID } from '../services/db';
 import { Specialty, Neighborhood } from '../types';
 
 const Register = () => {
@@ -16,8 +15,8 @@ const Register = () => {
     firstName: '',
     lastName: '',
     specialtyId: '',
-    countryId: 'NE',   // Hardcoded for Niger
-    cityId: 'NE_NIA',  // Hardcoded for Niamey
+    countryId: 'NE',
+    cityId: 'NE_NIA',
     neighborhoodId: '', 
     phone: '',
     whatsapp: '',
@@ -48,38 +47,19 @@ const Register = () => {
   const handleNeighborhoodChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     const hoodId = e.target.value;
     const selectedHood = neighborhoods.find(n => n.id === hoodId);
-    
-    setFormData({
-      ...formData,
-      neighborhoodId: hoodId,
-      // Auto-assign GPS coordinates based on neighborhood
-      latitude: selectedHood?.latitude || 0,
-      longitude: selectedHood?.longitude || 0
-    });
+    setFormData({ ...formData, neighborhoodId: hoodId, latitude: selectedHood?.latitude || 0, longitude: selectedHood?.longitude || 0 });
   };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>, type: 'id' | 'photo') => {
       if (e.target.files && e.target.files[0]) {
           const file = e.target.files[0];
-          
-          if (file.size > 2 * 1024 * 1024) { // 2MB limit
-              setFileError("Le fichier est trop volumineux (Max 2MB).");
-              return;
-          }
+          if (file.size > 2 * 1024 * 1024) { setFileError("Le fichier est trop volumineux (Max 2MB)."); return; }
           setFileError('');
-
           try {
               const dataUrl = await db.fileToDataURL(file);
-              if (type === 'id') {
-                  setIdFile(file);
-                  setFormData({ ...formData, idCardUrl: dataUrl });
-              } else {
-                  setPhotoFile(file);
-                  setFormData({ ...formData, photoUrl: dataUrl });
-              }
-          } catch (e) {
-              setFileError("Erreur lors de la lecture du fichier.");
-          }
+              if (type === 'id') { setIdFile(file); setFormData({ ...formData, idCardUrl: dataUrl }); }
+              else { setPhotoFile(file); setFormData({ ...formData, photoUrl: dataUrl }); }
+          } catch (e) { setFileError("Erreur lors de la lecture."); }
       }
   };
 
@@ -87,106 +67,40 @@ const Register = () => {
     if (e.target.files) {
       const files: File[] = Array.from(e.target.files);
       const newImages: string[] = [];
-      
       for (const file of files) {
          if (file.size > 2 * 1024 * 1024) continue;
-         try {
-            const url = await db.fileToDataURL(file);
-            newImages.push(url);
-         } catch(e) {}
+         try { const url = await db.fileToDataURL(file); newImages.push(url); } catch(e) {}
       }
-
-      setFormData(prev => ({
-         ...prev,
-         workImages: [...prev.workImages, ...newImages]
-      }));
+      setFormData(prev => ({ ...prev, workImages: [...prev.workImages, ...newImages] }));
     }
-  };
-
-  const removeWorkImage = (index: number) => {
-      setFormData(prev => ({
-          ...prev,
-          workImages: prev.workImages.filter((_, i) => i !== index)
-      }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.specialtyId || !formData.neighborhoodId) { setFileError("Veuillez remplir tous les champs requis."); return; }
     setStatus('submitting');
-    
     try {
         const timestamp = Date.now();
         const baseName = `${formData.firstName}_${formData.lastName}`.toUpperCase().replace(/\s+/g, '_');
-
-        // 1. SAUVEGARDE PIECE IDENTITE (MEDIA LIBRARY)
-        if (idFile && formData.idCardUrl) {
-             await db.saveMedia({
-                 id: `ID_${timestamp}`,
-                 type: 'document',
-                 name: `PIECE_IDENTITE_${baseName}`,
-                 data: formData.idCardUrl,
-                 date: new Date().toISOString()
-             });
-        }
-
-        // 2. SAUVEGARDE PHOTO PROFIL (MEDIA LIBRARY)
-        if (photoFile && formData.photoUrl) {
-            await db.saveMedia({
-                 id: `PHOTO_${timestamp}`,
-                 type: 'image',
-                 name: `PHOTO_PROFIL_${baseName}`,
-                 data: formData.photoUrl,
-                 date: new Date().toISOString()
-             });
-        }
-
-        // 3. SAUVEGARDE PHOTOS CHANTIER (MEDIA LIBRARY)
-        if (formData.workImages.length > 0) {
-            for (let i = 0; i < formData.workImages.length; i++) {
-                 if (formData.workImages[i].startsWith('data:')) {
-                     await db.saveMedia({
-                         id: `WORK_${timestamp}_${i}`,
-                         type: 'image',
-                         name: `CHANTIER_${baseName}_${i+1}`,
-                         data: formData.workImages[i],
-                         date: new Date().toISOString()
-                     });
-                 }
-            }
-        }
-
-        const success = await db.registerWorker({
-            ...formData
-        });
-
-        if (success) {
-          setStatus('success');
-        } else {
-          setStatus('error');
-        }
-    } catch (e) {
-        console.error(e);
-        setStatus('error');
-    }
+        if (idFile && formData.idCardUrl) { await db.saveMedia({ id: `ID_${timestamp}`, type: 'document', name: `CNI_${baseName}`, data: formData.idCardUrl, date: new Date().toISOString() }); }
+        if (photoFile && formData.photoUrl) { await db.saveMedia({ id: `PHOTO_${timestamp}`, type: 'image', name: `PHOTO_${baseName}`, data: formData.photoUrl, date: new Date().toISOString() }); }
+        const success = await db.registerWorker({ ...formData });
+        if (success) setStatus('success'); else setStatus('error');
+    } catch (e) { setStatus('error'); }
   };
 
   if (status === 'success') {
     return (
-      <div className="min-h-[80vh] flex items-center justify-center px-4">
-        <div className="bg-white dark:bg-gray-800 p-8 rounded-xl shadow-lg max-w-md w-full text-center">
-          <div className="mx-auto flex items-center justify-center h-16 w-16 rounded-full bg-green-100 mb-6">
-            <CheckCircle className="h-10 w-10 text-green-600" />
+      <div className="min-h-[80vh] flex items-center justify-center px-4 animate-in fade-in duration-500">
+        <div className="bg-white dark:bg-gray-800 p-10 rounded-3xl shadow-2xl max-w-md w-full text-center border border-green-50">
+          <div className="mx-auto flex items-center justify-center h-20 w-20 rounded-full bg-green-100 mb-6 shadow-inner">
+            <CheckCircle className="h-12 w-12 text-green-600" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-900 dark:text-white mb-2">Demande envoyée !</h2>
-          <p className="text-gray-600 dark:text-gray-300 mb-6">
-            Votre inscription a bien été prise en compte. Vos documents ont été transmis à l'administration pour validation.
+          <h2 className="text-3xl font-black text-gray-900 dark:text-white mb-3">Dossier Reçu !</h2>
+          <p className="text-gray-600 dark:text-gray-300 mb-8 font-medium">
+            Nagode ! Votre inscription est en cours de vérification par nos administrateurs à Niamey.
           </p>
-          <button 
-            onClick={() => navigate('/')}
-            className="w-full bg-brand-600 text-white py-3 rounded-md hover:bg-brand-700 font-medium"
-          >
-            Retour à l'accueil
-          </button>
+          <button onClick={() => navigate('/')} className="w-full bg-brand-600 text-white py-4 rounded-2xl hover:bg-brand-700 font-black uppercase tracking-widest text-sm shadow-xl shadow-brand-500/20 active:scale-95 transition-all">Retour à l'accueil</button>
         </div>
       </div>
     );
@@ -194,203 +108,79 @@ const Register = () => {
 
   return (
     <div className="max-w-3xl mx-auto px-4 py-12">
-      <div className="text-center mb-10">
-        <h1 className="text-3xl font-extrabold text-gray-900 dark:text-white mb-4">Devenir Ouvrier KAMBEGOYE</h1>
-        <p className="text-lg text-gray-600 dark:text-gray-400">
-          Inscrivez-vous gratuitement pour proposer vos services à Niamey.
-        </p>
+      <div className="text-center mb-12">
+        <h1 className="text-4xl font-black text-gray-900 dark:text-white mb-4 uppercase tracking-tight">Rejoindre KAMBEGOYE</h1>
+        <p className="text-lg text-gray-500 dark:text-gray-400 font-medium">Proposez votre expertise aux habitants de la capitale.</p>
       </div>
 
-      <div className="bg-white dark:bg-gray-800 shadow-xl rounded-xl overflow-hidden">
-        <div className="bg-brand-600 px-6 py-4 flex items-center text-white">
+      <div className="bg-white dark:bg-gray-800 shadow-2xl rounded-3xl overflow-hidden border border-gray-100 dark:border-gray-700">
+        <div className="bg-brand-600 px-8 py-5 flex items-center text-white">
           <UserPlus className="w-6 h-6 mr-3" />
-          <h2 className="text-xl font-bold">Formulaire d'inscription</h2>
+          <h2 className="text-xl font-black uppercase tracking-tight">Formulaire d'Ouvrier</h2>
         </div>
         
-        <form onSubmit={handleSubmit} className="p-6 md:p-8 space-y-6">
-          
-          {/* Identity */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <form onSubmit={handleSubmit} className="p-8 md:p-10 space-y-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Prénom</label>
-              <input
-                type="text"
-                name="firstName"
-                required
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleChange}
-              />
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Prénom</label>
+              <input type="text" name="firstName" required className="w-full rounded-2xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-3.5 border font-bold dark:bg-gray-700 dark:text-white dark:border-gray-600" onChange={handleChange}/>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Nom</label>
-              <input
-                type="text"
-                name="lastName"
-                required
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleChange}
-              />
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Nom</label>
+              <input type="text" name="lastName" required className="w-full rounded-2xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-3.5 border font-bold dark:bg-gray-700 dark:text-white dark:border-gray-600" onChange={handleChange}/>
             </div>
           </div>
 
-          {/* Location & Specialty */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-             {/* Neighborhood */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
              <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Quartier (Niamey)</label>
-              <select
-                name="neighborhoodId"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleNeighborhoodChange}
-              >
-                <option value="">Choisir un quartier...</option>
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Quartier (Niamey)</label>
+              <select name="neighborhoodId" required className="w-full rounded-2xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-3.5 border font-bold dark:bg-gray-700 dark:text-white dark:border-gray-600" onChange={handleNeighborhoodChange}>
+                <option value="">Sélectionner...</option>
                 {neighborhoods.map(n => <option key={n.id} value={n.id}>{n.name}</option>)}
               </select>
             </div>
-             
-             {/* Specialty */}
              <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Métier / Spécialité</label>
-                <select
-                  name="specialtyId"
-                  required
-                  className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                  onChange={handleChange}
-                >
+                <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Métier</label>
+                <select name="specialtyId" required className="w-full rounded-2xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-3.5 border font-bold dark:bg-gray-700 dark:text-white dark:border-gray-600" onChange={handleChange}>
                   <option value="">Choisir...</option>
                   {specialties.map(s => <option key={s.id} value={s.id}>{s.name}</option>)}
                 </select>
               </div>
           </div>
 
-          {/* Contacts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Téléphone (Appels)</label>
-              <input
-                type="tel"
-                name="phone"
-                required
-                placeholder="Ex: 90000000"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleChange}
-              />
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">Téléphone</label>
+              <input type="tel" name="phone" required placeholder="90 00 00 00" className="w-full rounded-2xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-3.5 border font-bold dark:bg-gray-700 dark:text-white dark:border-gray-600" onChange={handleChange}/>
             </div>
             <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">WhatsApp (Format international)</label>
-              <input
-                type="tel"
-                name="whatsapp"
-                required
-                placeholder="Ex: 22790000000"
-                className="w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-2.5 border dark:bg-gray-700 dark:border-gray-600 dark:text-white"
-                onChange={handleChange}
-              />
+              <label className="block text-xs font-black text-gray-400 uppercase tracking-widest mb-2">WhatsApp</label>
+              <input type="tel" name="whatsapp" required placeholder="227 90 00 00 00" className="w-full rounded-2xl border-gray-200 shadow-sm focus:border-brand-500 focus:ring-brand-500 p-3.5 border font-bold dark:bg-gray-700 dark:text-white dark:border-gray-600" onChange={handleChange}/>
             </div>
           </div>
 
-          <div className="bg-yellow-50 dark:bg-gray-700 p-4 rounded-md border border-yellow-200 dark:border-gray-600">
-             <h3 className="font-semibold text-yellow-800 dark:text-yellow-400 mb-2 flex items-center">
-               <Upload className="w-5 h-5 mr-2" />
-               Documents et Photos
-             </h3>
-             <p className="text-sm text-gray-600 dark:text-gray-300 mb-4">
-               Veuillez fournir une photo de profil et une pièce d'identité valide. Ces documents seront stockés de manière sécurisée.
-             </p>
-             
-             <div className="space-y-6">
-               {/* Profile Photo */}
+          <div className="bg-gray-50 dark:bg-gray-700/50 p-6 md:p-8 rounded-3xl border border-gray-100 dark:border-gray-600 space-y-6">
+             <h3 className="font-black text-gray-900 dark:text-white uppercase tracking-widest text-sm flex items-center"><Upload className="w-4 h-4 mr-2 text-brand-600" /> Documents Requis</h3>
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Photo de Profil (Visage visible)</label>
-                  <div className="flex items-center space-x-4">
-                      <div className="h-16 w-16 bg-gray-200 rounded-full overflow-hidden flex-shrink-0 border-2 border-gray-300">
-                          {formData.photoUrl.startsWith('data:') ? (
-                              <img src={formData.photoUrl} alt="Preview" className="h-full w-full object-cover" />
-                          ) : (
-                              <ImageIcon className="h-full w-full p-3 text-gray-400" />
-                          )}
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Photo de Profil</label>
+                  <div className="flex items-center gap-4">
+                      <div className="h-16 w-16 bg-white rounded-2xl overflow-hidden border-2 border-gray-200 shadow-sm flex-shrink-0">
+                          {formData.photoUrl.startsWith('data:') ? <img src={formData.photoUrl} alt="Preview" className="h-full w-full object-cover" /> : <ImageIcon className="h-full w-full p-4 text-gray-200" />}
                       </div>
-                      <input 
-                        type="file" 
-                        accept="image/*" 
-                        onChange={(e) => handleFileChange(e, 'photo')}
-                        className="block w-full text-sm text-gray-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100 dark:text-gray-300"
-                      />
+                      <input type="file" accept="image/*" onChange={(e) => handleFileChange(e, 'photo')} className="text-xs font-bold text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-brand-50 file:text-brand-700 hover:file:bg-brand-100"/>
                   </div>
                </div>
-               
-               {/* ID Card */}
                <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Carte d'Identité / Passeport</label>
-                  <div className="flex flex-col space-y-2">
-                    <div className="flex items-center justify-center w-full">
-                      <label className="flex flex-col items-center justify-center w-full h-32 border-2 border-gray-300 border-dashed rounded-lg cursor-pointer bg-gray-50 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:hover:border-gray-500 dark:hover:bg-gray-600">
-                          <div className="flex flex-col items-center justify-center pt-5 pb-6">
-                              <Upload className="w-8 h-8 mb-3 text-gray-500 dark:text-gray-400" />
-                              <p className="mb-2 text-sm text-gray-500 dark:text-gray-400"><span className="font-semibold">Cliquez pour uploader</span></p>
-                              <p className="text-xs text-gray-500 dark:text-gray-400">JPG, PNG (MAX. 2MB)</p>
-                          </div>
-                          <input type="file" className="hidden" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'id')} required />
-                      </label>
-                    </div>
-                    {/* Preview for ID if image */}
-                    {formData.idCardUrl && formData.idCardUrl.startsWith('data:image') && (
-                        <div className="mt-2 h-32 w-full bg-gray-100 rounded-lg overflow-hidden border border-gray-200">
-                            <img src={formData.idCardUrl} alt="ID Preview" className="h-full w-full object-contain" />
-                        </div>
-                    )}
-                    {idFile && (
-                        <div className="mt-2 text-sm text-green-600 flex items-center font-semibold">
-                            <FileText className="w-4 h-4 mr-1"/>
-                            {idFile.name} (Prêt à l'envoi)
-                        </div>
-                    )}
-                    {fileError && <p className="text-sm text-red-500 mt-1">{fileError}</p>}
-                  </div>
-               </div>
-
-               {/* Work Images (Portfolio) */}
-               <div>
-                  <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Vos Réalisations (Photos de chantiers - Optionnel)</label>
-                  <div className="grid grid-cols-3 gap-2 mb-2">
-                      {formData.workImages.map((img, idx) => (
-                          <div key={idx} className="relative h-20 w-20 rounded-md overflow-hidden group">
-                              <img src={img} className="h-full w-full object-cover" alt="Realisation" />
-                              <button 
-                                type="button" 
-                                onClick={() => removeWorkImage(idx)}
-                                className="absolute top-0 right-0 bg-red-500 text-white p-1 rounded-bl-md opacity-0 group-hover:opacity-100 transition-opacity"
-                              >
-                                  <Trash2 className="w-3 h-3" />
-                              </button>
-                          </div>
-                      ))}
-                      <label className="h-20 w-20 flex items-center justify-center border-2 border-dashed border-gray-300 rounded-md cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-700">
-                          <Upload className="w-6 h-6 text-gray-400" />
-                          <input type="file" className="hidden" accept="image/*" multiple onChange={handleWorkImages} />
-                      </label>
-                  </div>
-                  <p className="text-xs text-gray-500">Ajoutez des photos de vos travaux précédents pour rassurer les clients.</p>
+                  <label className="block text-[10px] font-black text-gray-400 uppercase tracking-widest mb-2">Pièce d'Identité (CNI)</label>
+                  <input type="file" accept="image/*,application/pdf" onChange={(e) => handleFileChange(e, 'id')} className="text-xs font-bold text-gray-400 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" required />
                </div>
              </div>
           </div>
 
-          {status === 'error' && (
-            <div className="flex items-center text-red-600 text-sm bg-red-50 p-3 rounded">
-              <AlertCircle className="w-4 h-4 mr-2" />
-              Une erreur est survenue lors de l'envoi du formulaire. Vérifiez la taille des fichiers.
-            </div>
-          )}
+          {fileError && <div className="p-4 bg-red-50 text-red-600 rounded-2xl text-sm font-bold flex items-center"><AlertCircle className="w-4 h-4 mr-2" /> {fileError}</div>}
 
-          <div className="pt-4">
-            <button
-              type="submit"
-              disabled={status === 'submitting'}
-              className="w-full flex justify-center py-3 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand-600 hover:bg-brand-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand-500 disabled:opacity-50"
-            >
-              {status === 'submitting' ? 'Envoi en cours...' : "Soumettre mon dossier"}
-            </button>
-          </div>
+          <button type="submit" disabled={status === 'submitting'} className="w-full bg-brand-600 text-white py-5 rounded-2xl font-black uppercase tracking-[0.2em] text-sm shadow-2xl shadow-brand-500/30 hover:bg-brand-700 transition-all disabled:opacity-50 active:scale-[0.98]">{status === 'submitting' ? 'Vérification...' : "Soumettre Inscription"}</button>
         </form>
       </div>
     </div>

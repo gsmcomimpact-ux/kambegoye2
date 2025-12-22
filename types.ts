@@ -1,4 +1,5 @@
 
+
 export interface Country {
   id: string;
   name: string;
@@ -10,6 +11,15 @@ export interface City {
   id: string;
   name: string;
   countryId: string;
+}
+
+export interface Review {
+  id: string;
+  workerId: string;
+  clientName: string;
+  rating: number;
+  comment: string;
+  date: string;
 }
 
 export interface Worker {
@@ -64,6 +74,7 @@ export interface Specialty {
 export interface Neighborhood {
   id: string;
   name: string;
+  commune?: string;
   cityId: string;
   latitude: number;
   longitude: number;
@@ -83,6 +94,16 @@ export interface Transaction {
   category: TransactionCategory; 
 }
 
+export interface Notification {
+  id: string;
+  title: string;
+  message: string;
+  type: 'info' | 'success' | 'warning' | 'error';
+  isRead: boolean;
+  date: string;
+  link?: string;
+}
+
 export interface ProjectRequest {
   id: string;
   reference?: string;
@@ -91,8 +112,6 @@ export interface ProjectRequest {
   title: string;
   description: string;
   category: string;
-  countryId?: string; 
-  cityId?: string;    
   neighborhoodId?: string;
   budget?: string;
   deadline?: string;
@@ -124,14 +143,15 @@ export interface Quote {
   projectRequestId?: string;
   clientName: string;
   clientPhone: string;
+  // Added missing clientAddress
   clientAddress?: string;
   date: string;
   dueDate: string;
   items: QuoteItem[];
   totalAmount: number;
   status: 'draft' | 'sent' | 'accepted' | 'rejected';
+  // Added missing notes
   notes?: string;
-  paymentMethod?: string;
 }
 
 export interface Dispute {
@@ -139,8 +159,8 @@ export interface Dispute {
   ticketNumber: string;
   clientName: string;
   clientPhone: string;
-  workerName: string; // Nom de l'ouvrier concerné
-  workerPhone?: string; // Téléphone de l'ouvrier concerné
+  workerName: string;
+  workerPhone?: string;
   reason: string;
   description: string;
   date: string;
@@ -160,20 +180,10 @@ export interface Partner {
 export interface AdminUser {
   id: string;
   username: string;
-  password?: string; // Optional when retrieving lists to not expose it easily
+  password?: string;
   name: string;
   role: 'admin' | 'manager';
   lastLogin?: string;
-}
-
-export interface AppEvent {
-  id: string;
-  type: 'transaction' | 'project' | 'quote' | 'media' | 'dispute';
-  title: string;
-  description: string;
-  date: string;
-  amount?: number;
-  status?: string;
 }
 
 export interface Stats {
@@ -189,7 +199,6 @@ export interface Stats {
   allTransactions: Transaction[];
   pendingProjects: number;
   topWorkers: Worker[];
-  recentEvents: AppEvent[];
 }
 
 export interface SystemSettings {

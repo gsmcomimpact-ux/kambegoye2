@@ -1,7 +1,7 @@
 
 import React, { useState, useRef, useEffect } from 'react';
-import { MessageSquare, X, Send, Bot, User, Loader2, Sparkles, AlertCircle } from 'lucide-react';
-import { GoogleGenAI } from '@google/genai';
+import { X, Send, Bot, User, Loader2, Sparkles, AlertCircle } from 'lucide-react';
+import { GoogleGenAI } from "@google/genai";
 
 interface Message {
   role: 'user' | 'model';
@@ -35,38 +35,65 @@ const AIAssistant = () => {
 
     const userMessage = input.trim();
     setInput('');
-    setMessages(prev => [...prev, { role: 'user', text: userMessage }]);
+    
+    // Ajout immédiat du message utilisateur à l'UI
+    const newMessages: Message[] = [...messages, { role: 'user', text: userMessage }];
+    setMessages(newMessages);
     setIsLoading(true);
     setError(null);
 
     try {
+      // Initialisation du client avec la clé d'environnement
       const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
-      const modelName = 'gemini-3-flash-preview';
       
-      const chatContext = messages.map(m => `${m.role === 'user' ? 'Utilisateur' : 'Assistant'}: ${m.text}`).join('\n');
-
       const systemInstruction = `
-        Tu es l'assistant intelligent de KAMBEGOYE, une plateforme de mise en relation entre ouvriers et clients à Niamey, Niger.
-        Ton but est d'aider les clients à :
-        1. Identifier la spécialité d'ouvrier nécessaire (ex: problème électrique -> Électricien, fuite d'eau -> Plombier).
-        2. Expliquer comment fonctionne la plateforme (200 FCFA pour débloquer les contacts, boutique disponible, demande de devis gratuite).
-        3. Donner des conseils généraux de sécurité pour les chantiers.
+        Tu es l'assistant intelligent de KAMBEGOYE, la plateforme leader de mise en relation BTP à Niamey, Niger.
         
-        Ton ton doit être professionnel, chaleureux, et typiquement sahélien/nigérien dans l'accueil (usage de "Nagode", "Barkaye", etc. occasionnellement).
-        Répond de manière concise. Ne donne jamais de prix fixes pour les prestations des ouvriers car ils fixent leurs propres tarifs.
-        Les spécialités disponibles sur KAMBEGOYE sont : Électricien, Plombier, Maçon, Menuisier, Peintre, Frigoriste, Soudeur, Mécanicien, Jardinier, Personnel de maison, Antenniste, Vidéosurveillance.
+        TON RÔLE :
+        1. Guider l'utilisateur vers le bon corps de métier (ex: "J'ai une fuite" -> Plombier).
+        2. Expliquer les frais : 200 FCFA pour débloquer l'accès illimité aux contacts pendant 5 minutes.
+        3. Promouvoir la Boutique KAMBEGOYE pour l'achat de matériel (Wadfow, etc.).
+        4. Rappeler les consignes de sécurité : Ne jamais payer la totalité avant la fin des travaux.
+        
+        TON TON :
+        - Professionnel mais chaleureux.
+        - Utilise quelques mots locaux pour l'accueil/remerciement (Nagode, Barkaye, Fofo).
+        - Reste concis (pas de longs paragraphes).
+        - Localisation exclusive : NIAMEY.
+        
+        LIMITES :
+        - Ne donne jamais de prix précis pour le travail d'un ouvrier (ils fixent leurs tarifs).
+        - Si on te demande quelque chose hors BTP/Maison, redirige poliment vers les services de KAMBEGOYE.
       `;
 
-      const response = await ai.models.generateContent({
-        model: modelName,
-        contents: `${systemInstruction}\n\nHistorique de la conversation :\n${chatContext}\n\nUtilisateur: ${userMessage}\nAssistant:`,
+      // Préparation de l'historique pour l'API (exclure le message système car il va dans config)
+      // Gemini attend un format : { role: 'user' | 'model', parts: [{ text: string }] }
+      const history = messages.map(m => ({
+        role: m.role,
+        parts: [{ text: m.text }]
+      }));
+
+      // Création d'une session de chat
+      const chat = ai.chats.create({
+        model: 'gemini-3-flash-preview',
+        config: {
+          systemInstruction: systemInstruction.trim(),
+          temperature: 0.7,
+          topP: 0.95,
+        },
+        history: history,
       });
 
-      const aiText = response.text || "Désolé, je n'ai pas pu générer de réponse. Réessayez bientôt.";
+      // Envoi du message
+      const result = await chat.sendMessage({ message: userMessage });
+      
+      // Récupération de la réponse (propriété .text)
+      const aiText = result.text || "Désolé, je rencontre une petite difficulté technique. Nagode de réessayer dans un instant.";
+      
       setMessages(prev => [...prev, { role: 'model', text: aiText }]);
     } catch (err) {
-      console.error("Gemini Error:", err);
-      setError("Désolé, le service d'IA est momentanément indisponible.");
+      console.error("Gemini Production Error:", err);
+      setError("Le service Kambe-AI est temporairement indisponible. Nagode pour votre patience.");
     } finally {
       setIsLoading(false);
     }
@@ -74,19 +101,20 @@ const AIAssistant = () => {
 
   return (
     <div className="fixed bottom-6 right-6 z-[100] font-sans">
-      {/* Toggle Button */}
+      {/* Bouton de bascule */}
       <button
         onClick={() => setIsOpen(!isOpen)}
         className={`flex items-center justify-center w-14 h-14 rounded-full shadow-2xl transition-all duration-300 transform hover:scale-110 ${
           isOpen ? 'bg-red-500 rotate-90' : 'bg-brand-600'
         } text-white`}
+        aria-label="Ouvrir l'assistant"
       >
         {isOpen ? <X className="w-6 h-6" /> : <Bot className="w-7 h-7" />}
       </button>
 
-      {/* Chat Window */}
+      {/* Fenêtre de Chat */}
       {isOpen && (
-        <div className="absolute bottom-20 right-0 w-[350px] sm:w-[400px] h-[500px] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-bottom-10 duration-300">
+        <div className="absolute bottom-20 right-0 w-[350px] sm:w-[400px] h-[550px] max-h-[80vh] bg-white dark:bg-gray-800 rounded-2xl shadow-2xl flex flex-col border border-gray-200 dark:border-gray-700 overflow-hidden animate-in fade-in slide-in-from-bottom-10 duration-300">
           {/* Header */}
           <div className="bg-brand-600 p-4 text-white flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -95,13 +123,16 @@ const AIAssistant = () => {
               </div>
               <div>
                 <h3 className="font-bold text-sm leading-none">Assistant Kambe-AI</h3>
-                <span className="text-[10px] opacity-80 uppercase tracking-widest font-semibold">Conseiller Niamey</span>
+                <span className="text-[10px] opacity-80 uppercase tracking-widest font-semibold">Expert Niamey</span>
               </div>
             </div>
-            <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse shadow-[0_0_8px_rgba(74,222,128,0.8)]"></div>
+            <div className="flex items-center gap-2">
+                <span className="text-[10px] bg-white/20 px-2 py-0.5 rounded-full">En ligne</span>
+                <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
+            </div>
           </div>
 
-          {/* Messages */}
+          {/* Zone des Messages */}
           <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50 dark:bg-gray-900/50">
             {messages.map((m, i) => (
               <div
@@ -129,14 +160,14 @@ const AIAssistant = () => {
               <div className="flex justify-start">
                 <div className="flex gap-2 items-center text-gray-400 text-xs italic">
                   <Loader2 className="w-3 h-3 animate-spin" />
-                  Kambe-AI réfléchit...
+                  Kambe-AI analyse votre demande...
                 </div>
               </div>
             )}
 
             {error && (
-              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-2 rounded-lg text-xs flex items-center gap-2">
-                <AlertCircle className="w-4 h-4" />
+              <div className="bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 p-3 rounded-xl text-xs flex items-center gap-2 border border-red-100 dark:border-red-800">
+                <AlertCircle className="w-4 h-4 flex-shrink-0" />
                 {error}
               </div>
             )}
@@ -144,7 +175,7 @@ const AIAssistant = () => {
             <div ref={messagesEndRef} />
           </div>
 
-          {/* Input */}
+          {/* Formulaire d'envoi */}
           <form onSubmit={handleSendMessage} className="p-4 bg-white dark:bg-gray-800 border-t border-gray-100 dark:border-gray-700">
             <div className="relative flex items-center">
               <input
@@ -153,17 +184,18 @@ const AIAssistant = () => {
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Posez votre question..."
                 className="w-full bg-gray-100 dark:bg-gray-700 border-none rounded-full py-3 pl-4 pr-12 text-sm focus:ring-2 focus:ring-brand-500 dark:text-white transition-all"
+                disabled={isLoading}
               />
               <button
                 type="submit"
                 disabled={isLoading || !input.trim()}
-                className="absolute right-2 p-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:opacity-50 disabled:hover:bg-brand-600 transition-colors"
+                className="absolute right-2 p-2 bg-brand-600 text-white rounded-full hover:bg-brand-700 disabled:opacity-50 disabled:hover:bg-brand-600 transition-all active:scale-90"
               >
                 <Send className="w-4 h-4" />
               </button>
             </div>
-            <p className="text-[10px] text-gray-400 text-center mt-2">
-              L'IA peut faire des erreurs. Vérifiez les informations importantes.
+            <p className="text-[9px] text-gray-400 text-center mt-2 uppercase tracking-tighter">
+              Kambegoye AI • Service Client Niamey
             </p>
           </form>
         </div>
